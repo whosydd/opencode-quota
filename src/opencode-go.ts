@@ -111,10 +111,26 @@ function extractWindow(html: string, fieldName: string): OpenCodeGoWindow | null
 }
 
 function extractObjectLiteral(html: string, fieldName: string): string | null {
-  const match = new RegExp(`${fieldName}:\$R\[\d+\]=\{`).exec(html)
-  if (!match || match.index === undefined) return null
+  const patterns = [
+    new RegExp(`${escapeRegExp(fieldName)}\\s*:\\s*\\$R\\[\\d+\\]\\s*=\\s*\\{`),
+    new RegExp(`\"${escapeRegExp(fieldName)}\"\\s*:\\s*\\{`),
+    new RegExp(`${escapeRegExp(fieldName)}\\s*:\\s*\\{`),
+    new RegExp(`${escapeRegExp(fieldName)}\\s*=\\s*\\{`),
+  ]
 
-  const start = match.index + match[0].length - 1
+  for (const pattern of patterns) {
+    const match = pattern.exec(html)
+    if (!match || match.index === undefined) continue
+
+    const start = match.index + match[0].lastIndexOf("{")
+    const objectLiteral = readObjectLiteral(html, start)
+    if (objectLiteral) return objectLiteral
+  }
+
+  return null
+}
+
+function readObjectLiteral(html: string, start: number): string | null {
   let depth = 0
   let inSingleQuote = false
   let inDoubleQuote = false
@@ -170,6 +186,7 @@ function parseLooseObjectLiteral(input: string): unknown {
       const escaped = value.replace(/"/g, '\\"')
       return `"${escaped}"`
     })
+    .replace(/\bundefined\b/g, "null")
     .replace(/,\s*([}\]])/g, "$1")
 
   try {
@@ -181,7 +198,17 @@ function parseLooseObjectLiteral(input: string): unknown {
 
 function asNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value
+
+  if (typeof value === "string") {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+
   return null
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 function createConfigFingerprint(config: OpenCodeGoConfig): string {
