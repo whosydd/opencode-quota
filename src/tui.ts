@@ -96,7 +96,7 @@ async function buildUsageMessage(
     }
 
     throw new Error(
-      "No usage providers are configured. Set OpenCode Go and/or GitHub Copilot credentials in tui.json, environment variables, or opencode-model-status.json.",
+      "No usage providers are configured. Set OpenCode Go and/or GitHub Copilot credentials in tui.json, environment variables, or opencode-model-usage.json.",
     )
   }
 

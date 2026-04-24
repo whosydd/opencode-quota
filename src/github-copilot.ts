@@ -122,7 +122,7 @@ async function fetchGitHubCopilotQuotaSnapshot(config: GitHubCopilotConfig): Pro
       headers: {
         Accept: "application/json",
         Authorization: `token ${config.token}`,
-        "User-Agent": "opencode-model-status/0.1.0",
+        "User-Agent": "opencode-model-usage/0.1.0",
         "X-GitHub-Api-Version": "2025-04-01",
       },
     })
@@ -168,7 +168,7 @@ async function fetchGitHubCopilotBillingUsage(config: GitHubCopilotConfig): Prom
       headers: {
         Accept: "application/vnd.github+json",
         Authorization: `Bearer ${config.token}`,
-        "User-Agent": "opencode-model-status/0.1.0",
+        "User-Agent": "opencode-model-usage/0.1.0",
         "X-GitHub-Api-Version": "2026-03-10",
       },
     })

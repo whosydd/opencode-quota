@@ -69,7 +69,7 @@ async function fetchOpenCodeGoUsage(config: OpenCodeGoConfig): Promise<OpenCodeG
       headers: {
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         Cookie: `auth=${config.authCookie}`,
-        "User-Agent": "opencode-model-status/0.1.0",
+        "User-Agent": "opencode-model-usage/0.1.0",
       },
     })
   } catch {

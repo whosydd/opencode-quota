@@ -1,4 +1,4 @@
-# opencode-model-status
+# opencode-model-usage
 
 OpenCode TUI plugin for checking model or subscription usage.
 
@@ -7,13 +7,13 @@ The plugin currently supports:
 - OpenCode Go rolling, weekly, and monthly subscription usage
 - GitHub Copilot monthly premium request usage, allowance, and overage
 
-It exposes a single slash command:
+It exposes two slash commands:
 
 ```text
 /model-usage
 ```
 
-It also exposes a manual refresh command:
+And a manual refresh command:
 
 ```text
 /model-usage-refresh
@@ -45,7 +45,7 @@ npm run build
   "$schema": "https://opencode.ai/tui.json",
   "plugin": [
     [
-      "file:///absolute/path/to/opencode-model-status/dist/tui.js",
+      "file:///absolute/path/to/opencode-model-usage/dist/tui.js",
       {
         "opencodeGo": {
           "workspaceId": "wrk_your_workspace_id",
@@ -75,7 +75,7 @@ Preferred: `tui.json` plugin options.
   "$schema": "https://opencode.ai/tui.json",
   "plugin": [
     [
-      "file:///absolute/path/to/opencode-model-status/dist/tui.js",
+      "file:///absolute/path/to/opencode-model-usage/dist/tui.js",
       {
         "opencodeGo": {
           "workspaceId": "wrk_your_workspace_id",
@@ -101,7 +101,7 @@ OpenCode Go also supports the legacy top-level form:
   "$schema": "https://opencode.ai/tui.json",
   "plugin": [
     [
-      "file:///absolute/path/to/opencode-model-status/dist/tui.js",
+      "file:///absolute/path/to/opencode-model-usage/dist/tui.js",
       {
         "opencodeGo": {
           "workspaceId": "wrk_your_workspace_id",
@@ -145,13 +145,13 @@ Config file fallback:
 }
 ```
 
-String config values in `tui.json` and `opencode-model-status.json` also support exact environment placeholders like `{env:OPENCODE_GO_AUTH_COOKIE}` and `{env:GITHUB_COPILOT_TOKEN}`.
+String config values in `tui.json` and `opencode-model-usage.json` also support exact environment placeholders like `{env:OPENCODE_GO_AUTH_COOKIE}` and `{env:GITHUB_COPILOT_TOKEN}`.
 
 Valid config file locations:
 
-- `~/.config/opencode/opencode-model-status.json`
-- `~/.opencode/opencode-model-status.json`
-- `<project>/.opencode/opencode-model-status.json`
+- `~/.config/opencode/opencode-model-usage.json`
+- `~/.opencode/opencode-model-usage.json`
+- `<project>/.opencode/opencode-model-usage.json`
 
 ## Usage
 

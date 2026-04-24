@@ -2,7 +2,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 
-const CONFIG_FILE = "opencode-model-status.json"
+const CONFIG_FILE = "opencode-model-usage.json"
 const DEFAULT_REFRESH_MINUTES = 5
 const ENV_REFERENCE_PATTERN = /^\{env:([A-Za-z_][A-Za-z0-9_]*)\}$/
 const ENV_PLACEHOLDER_PATTERN = /^\{env:(.+)\}$/

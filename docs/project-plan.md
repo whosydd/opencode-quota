@@ -79,7 +79,7 @@ Example:
   "$schema": "https://opencode.ai/tui.json",
   "plugin": [
     [
-      "file:///absolute/path/to/opencode-model-status/dist/tui.js",
+      "file:///absolute/path/to/opencode-model-usage/dist/tui.js",
       {
         "workspaceId": "wrk_example",
         "authCookie": "Fe26.2**example",
@@ -98,9 +98,9 @@ Example:
 
 ### Fallback File
 
-- `~/.config/opencode/opencode-model-status.json`
-- `~/.opencode/opencode-model-status.json`
-- `<project>/.opencode/opencode-model-status.json`
+- `~/.config/opencode/opencode-model-usage.json`
+- `~/.opencode/opencode-model-usage.json`
+- `<project>/.opencode/opencode-model-usage.json`
 
 Example:
 

@@ -2,37 +2,63 @@
 
 ## Project Purpose
 
-This repository builds an OpenCode usage plugin focused on helping users understand model and subscription usage in one place.
+OpenCode TUI plugin that shows model/subscription usage from multiple providers in one place.
 
 ## Current Scope
 
-- The long-term product direction is a unified usage surface for GitHub Copilot, ChatGPT/Codex, OpenCode Go, and other providers.
-- The first shipped version is intentionally smaller: a TUI plugin that exposes `/model-usage` and shows OpenCode Go subscription usage only.
+- OpenCode Go rolling, weekly, and monthly subscription usage (HTML scraping)
+- GitHub Copilot monthly premium request usage, allowance, and overage
+- Two slash commands: `/model-usage` (cached) and `/model-usage-refresh` (force live)
+
+## Build & Verify
+
+```bash
+npm install
+npm run build      # tsup ESM + dts -> dist/
+npm run typecheck  # tsc --noEmit
+```
+
+No test suite exists yet. Verify by building and type-checking.
 
 ## Repository Layout
 
-- `docs/project-plan.md`: product and implementation roadmap.
-- `src/tui.ts`: TUI plugin entrypoint.
-- `src/config.ts`: config loading and validation.
-- `src/opencode-go.ts`: OpenCode Go fetching, parsing, and caching.
-- `src/format.ts`: user-facing text formatting.
+- `src/tui.ts`: TUI plugin entrypoint. Registers slash commands, orchestrates provider calls, renders dialogs.
+- `src/config.ts`: Config loading with priority: `tui.json` plugin options → env vars → `opencode-model-usage.json` file.
+- `src/opencode-go.ts`: HTML fetch + parse for OpenCode Go usage. In-memory cache with stale fallback.
+- `src/github-copilot.ts`: GitHub API fetcher. Tries IDE quota snapshot first, falls back to personal billing usage endpoint. In-memory cache with stale fallback.
+- `src/format.ts`: Text formatting for TUI dialog output.
+- `docs/project-plan.md`: Roadmap (phases 0-3).
 
-## Implementation Rules
+## Architecture Rules
 
-- Prefer the smallest working change.
-- Keep provider-specific logic isolated so new providers can be added without rewriting the TUI command.
-- Do not log secrets such as cookies or tokens.
+- Keep provider logic isolated. `tui.ts` should not know how data is fetched.
+- Each provider owns its own fetch, parse, cache, and error handling.
+- `format.ts` is the single place for user-facing text; providers return structured data, not strings.
+- Do not log secrets (cookies, tokens) anywhere.
 - Prefer environment variables over config files for credentials.
-- Keep v1 TUI-only unless a concrete server-side need appears.
 
-## V1 Command Contract
+## Provider Quirks
 
-- Slash command: `/model-usage`
-- Behavior: fetch OpenCode Go usage and show a formatted result in the TUI.
-- Failure mode: show a concise actionable error message.
+### OpenCode Go
+- Scrapes `https://opencode.ai/workspace/{id}/go` and parses inline JS object literals from HTML.
+- Parsing is fragile; the page format can change without warning.
+- Returns rolling, weekly, and monthly windows with `usagePercent` and `resetInSec`.
 
-## Near-Term Expansion
+### GitHub Copilot
+- **Primary**: `GET /copilot_internal/user` quota snapshot (matches VS Code IDE usage).
+- **Fallback**: `GET /users/{username}/settings/billing/premium_request/usage` (personal billing only; org-managed licenses are not included).
+- Quota snapshot 404s are silently ignored and trigger billing fallback.
+- Auth/permission/rate-limit errors from quota snapshot are **surfaced directly**, not masked by billing fallback errors.
+- `monthlyAllowance` is required for billing fallback to compute percentages; set to `300` (Copilot Pro) or `1500` (Copilot Pro+).
 
-- Add normalized provider adapters.
-- Add a server plugin entrypoint if natural-language tool access becomes necessary.
-- Add more providers only after the OpenCode Go path is stable.
+## Config & Secrets
+
+- Config file name: `opencode-model-usage.json`
+- Valid locations: `~/.config/opencode/`, `~/.opencode/`, `<project>/.opencode/`
+- String values support `{env:VARIABLE_NAME}` placeholders. Shell command placeholders like `{env:$(gh auth token)}` are explicitly rejected.
+- Never commit tokens or cookies to the repo.
+
+## Constraints
+
+- TUI-only for now. No server plugin entrypoint unless a concrete need appears.
+- This is a single-package repo, not a monorepo.

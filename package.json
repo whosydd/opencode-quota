@@ -1,5 +1,5 @@
 {
-  "name": "opencode-model-status",
+  "name": "opencode-model-usage",
   "version": "0.1.0",
   "description": "OpenCode TUI plugin for model and subscription usage status.",
   "type": "module",
