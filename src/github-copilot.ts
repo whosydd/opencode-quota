@@ -116,14 +116,19 @@ async function fetchGitHubCopilotUsage(config: GitHubCopilotConfig): Promise<Git
 }
 
 async function fetchGitHubCopilotQuotaSnapshot(config: GitHubCopilotConfig): Promise<GitHubCopilotSnapshot | null> {
-  const response = await fetch("https://api.github.com/copilot_internal/user", {
-    headers: {
-      Accept: "application/json",
-      Authorization: `token ${config.token}`,
-      "User-Agent": "opencode-model-status/0.1.0",
-      "X-GitHub-Api-Version": "2025-04-01",
-    },
-  })
+  let response: Response
+  try {
+    response = await fetch("https://api.github.com/copilot_internal/user", {
+      headers: {
+        Accept: "application/json",
+        Authorization: `token ${config.token}`,
+        "User-Agent": "opencode-model-status/0.1.0",
+        "X-GitHub-Api-Version": "2025-04-01",
+      },
+    })
+  } catch {
+    throw new Error("Network error while fetching GitHub Copilot quota snapshot.")
+  }
 
   if (!response.ok) {
     if (response.status === 404) {
@@ -157,14 +162,19 @@ async function fetchGitHubCopilotBillingUsage(config: GitHubCopilotConfig): Prom
   url.searchParams.set("year", String(year))
   url.searchParams.set("month", String(month))
 
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${config.token}`,
-      "User-Agent": "opencode-model-status/0.1.0",
-      "X-GitHub-Api-Version": "2026-03-10",
-    },
-  })
+  let response: Response
+  try {
+    response = await fetch(url, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${config.token}`,
+        "User-Agent": "opencode-model-status/0.1.0",
+        "X-GitHub-Api-Version": "2026-03-10",
+      },
+    })
+  } catch {
+    throw new Error("Network error while fetching GitHub Copilot billing usage.")
+  }
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -320,7 +330,7 @@ function resolveUsedPremiumRequests(
 }
 
 function resolveMonthlyAllowance(configuredAllowance: number | null, totals: UsageTotals): number {
-  if (configuredAllowance && configuredAllowance > 0) {
+  if (configuredAllowance != null && configuredAllowance >= 0) {
     return configuredAllowance
   }
 
