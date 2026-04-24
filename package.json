@@ -1,0 +1,32 @@
+{
+  "name": "opencode-model-status",
+  "version": "0.1.0",
+  "description": "OpenCode TUI plugin for model and subscription usage status.",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./tui": {
+      "import": "./dist/tui.js",
+      "types": "./dist/tui.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/tui.ts --format esm --dts --out-dir dist --clean --external @opentui/solid",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18",
+    "opencode": ">=1.14.0"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.14.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.14.22",
+    "@types/node": "^24.9.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
+  }
+}
