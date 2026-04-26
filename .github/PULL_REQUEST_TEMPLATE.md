@@ -1,65 +1,37 @@
 ## Summary
 
-<!-- Describe your changes in 1-2 sentences -->
-
-## Related Issue
-
-<!-- Link to the issue this PR addresses -->
-Fixes #
+<!-- Describe the user-visible change and why it is needed. -->
 
 ## Type of Change
 
-<!-- Mark the appropriate option -->
+- [ ] Bug fix
+- [ ] Feature
+- [ ] Refactor
+- [ ] Documentation
+- [ ] CI / repository maintenance
 
-- [ ] Bug fix (non-breaking change fixing an issue)
-- [ ] New feature (non-breaking change adding functionality)
-- [ ] Breaking change (fix or feature causing existing functionality to change)
-- [ ] Documentation update
-- [ ] Refactoring (no functional changes)
-- [ ] Performance improvement
-- [ ] Test updates
+## Scope
 
-## Changes Made
+- [ ] OpenCode Go provider
+- [ ] GitHub Copilot provider
+- [ ] TUI command / rendering
+- [ ] Configuration / credentials handling
+- [ ] Documentation / project workflow
 
-<!-- List the specific changes made in this PR -->
+## Verification
 
--
--
--
+<!-- Keep commands checked only after they pass. If a command is not applicable, explain why. -->
 
-## Screenshots
+- [ ] `npm run build`
+- [ ] `npm run typecheck`
+- [ ] Manual TUI check, if user-facing output changed
 
-<!-- If applicable, add screenshots or GIFs demonstrating the changes -->
+## Config and Security Impact
 
-## Testing
+- [ ] No credentials, cookies, or tokens are committed
+- [ ] No new config variables are required
+- [ ] Documentation is updated for any config changes
 
-<!-- Describe how you tested these changes -->
+## Reviewer Notes
 
-- [ ] Unit tests added/updated
-- [ ] Integration tests added/updated
-- [ ] Manual testing performed
-
-### Test Instructions
-
-<!-- Steps for reviewers to test -->
-
-1.
-2.
-3.
-
-## Checklist
-
-<!-- Ensure all items are checked before requesting review -->
-
-- [ ] My code follows the project's style guidelines
-- [ ] I have performed a self-review of my code
-- [ ] I have commented my code where necessary
-- [ ] I have updated the documentation
-- [ ] My changes generate no new warnings
-- [ ] I have added tests proving my fix/feature works
-- [ ] All new and existing tests pass
-- [ ] Any dependent changes have been merged
-
-## Additional Notes
-
-<!-- Any additional information reviewers should know -->
+<!-- Include screenshots, sample output, known limitations, or follow-up work. -->
