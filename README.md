@@ -43,13 +43,10 @@ Quota is displayed as a card-based dialog with progress bars, percentages, and r
 
 ## Install
 
-### 1. Clone and build
+### 1. From npm (Recommended)
 
 ```bash
-git clone https://github.com/whosydd/opencode-model-usage.git
-cd opencode-model-usage
-npm install
-npm run build
+npm install opencode-model-quota
 ```
 
 ### 2. Register in OpenCode
@@ -61,7 +58,7 @@ Add the plugin to your `tui.json`:
   "$schema": "https://opencode.ai/tui.json",
   "plugin": [
     [
-      "file:///absolute/path/to/opencode-model-usage/dist/tui.js",
+      "opencode-model-quota",
       {
         "opencodeGo": {
           "workspaceId": "wrk_your_workspace_id",
@@ -83,6 +80,19 @@ Configure only the providers you need. Omit `opencodeGo` or `githubCopilot` to s
 ### 3. Verify
 
 Restart OpenCode and run `/model-quota` in the TUI.
+
+<details>
+<summary>Manual build (for developers)</summary>
+
+```bash
+git clone https://github.com/whosydd/opencode-model-usage.git
+cd opencode-model-usage
+npm install
+npm run build
+```
+
+Then register using the absolute path to `dist/tui.js`.
+</details>
 
 ## Configuration
 

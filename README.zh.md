@@ -43,13 +43,10 @@ OpenCode TUI 插件，用于查看模型或订阅配额。
 
 ## 安装
 
-### 1. 克隆并构建
+### 1. 通过 npm 安装（推荐）
 
 ```bash
-git clone https://github.com/whosydd/opencode-model-usage.git
-cd opencode-model-usage
-npm install
-npm run build
+npm install opencode-model-quota
 ```
 
 ### 2. 注册到 OpenCode
@@ -61,7 +58,7 @@ npm run build
   "$schema": "https://opencode.ai/tui.json",
   "plugin": [
     [
-      "file:///absolute/path/to/opencode-model-usage/dist/tui.js",
+      "opencode-model-quota",
       {
         "opencodeGo": {
           "workspaceId": "wrk_your_workspace_id",
@@ -83,6 +80,19 @@ npm run build
 ### 3. 验证
 
 重启 OpenCode，在 TUI 中运行 `/model-quota`。
+
+<details>
+<summary>手动构建（开发人员）</summary>
+
+```bash
+git clone https://github.com/whosydd/opencode-model-usage.git
+cd opencode-model-usage
+npm install
+npm run build
+```
+
+然后使用 `dist/tui.js` 的绝对路径进行注册。
+</details>
 
 ## 配置
 
