@@ -330,7 +330,7 @@ function resolveUsedPremiumRequests(
 }
 
 function resolveMonthlyAllowance(configuredAllowance: number | null, totals: UsageTotals): number {
-  if (configuredAllowance != null && configuredAllowance >= 0) {
+  if (configuredAllowance != null && configuredAllowance > 0) {
     return configuredAllowance
   }
 
