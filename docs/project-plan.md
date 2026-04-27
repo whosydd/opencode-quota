@@ -2,39 +2,37 @@
 
 ## Goal
 
-Build an OpenCode plugin that lets users quickly inspect model or subscription usage so they can decide when to use premium models and when to switch to cheaper ones.
+Build an OpenCode plugin that lets users quickly inspect model or subscription quota so they can decide when to use premium models and when to switch to cheaper ones.
 
 ## Product Direction
 
-The target experience is a unified usage command that can show:
+The target experience is a unified quota command that can show:
 
-- GitHub Copilot premium request usage.
-- ChatGPT or Codex subscription window usage.
-- OpenCode Go rolling, weekly, and monthly usage.
-- Future provider-specific usage windows where official or stable unofficial sources exist.
+- GitHub Copilot premium request quota.
+- OpenCode Go rolling, weekly, and monthly quota.
+- Future provider-specific quota windows where official or stable unofficial sources exist.
 
 ## Delivery Strategy
 
-### Phase 0: Repository Setup
+### Phase 0: Repository Setup ✅
 
 - Create project documentation.
 - Define architecture boundaries.
 - Ship a minimal plugin structure that is easy to extend.
 
-### Phase 1: Minimal Working Version
+### Phase 1: Minimal Working Version ✅
 
 - Scope: OpenCode Go only.
-- Surface: `/model-usage` slash command in the TUI, plus `/model-usage-refresh` for forced refresh.
+- Surface: `/model-quota` slash command in the TUI.
 - Output: a short formatted summary shown in a TUI dialog.
-- Configuration: `tui.json` plugin options first, then environment variables, then config file fallback.
-- Caching: in-memory cache to avoid repeated scraping.
+- Configuration: `tui.json` plugin options first, then environment variables.
+- No caching: always fetches fresh data on each invocation.
 
-### Phase 2: Provider Expansion
+### Phase 2: Provider Expansion ✅
 
-- Add adapter-based provider normalization.
-- Reuse OpenCode built-in usage data where it already exists.
-- Add GitHub Copilot and ChatGPT or Codex support.
-- Current progress: GitHub Copilot premium request usage is available through the IDE quota snapshot path with a personal billing fallback for user-billed accounts.
+- Add GitHub Copilot premium request quota with IDE quota snapshot path and personal billing fallback.
+- Provider modules are isolated: each owns its own fetch, parse, and error handling.
+- Parallel fetching: all configured providers run concurrently with `Promise.allSettled`; partial failures are reported alongside successes.
 
 ### Phase 3: Richer UX
 
@@ -45,16 +43,35 @@ The target experience is a unified usage command that can show:
 ## Architecture
 
 - `src/tui.ts` owns the slash command registration and TUI feedback.
-- `src/config.ts` centralizes environment and file-based config loading.
-- `src/opencode-go.ts` owns remote fetching, HTML parsing, and cache behavior.
-- `src/github-copilot.ts` owns GitHub billing API fetching and cache behavior.
+- `src/config.ts` centralizes environment-based config loading and `tui.json` overrides.
+- `src/opencode-go.ts` owns remote fetching, HTML parsing, and data extraction.
+- `src/github-copilot.ts` owns GitHub Copilot API fetching and response parsing.
 - `src/format.ts` converts provider data into user-facing text.
+
+### Provider Isolation
+
+`tui.ts` does not know how data is fetched. Each provider module:
+
+- Exports a single `get<Provider>Quota()` function that accepts optional config overrides.
+- Returns a structured snapshot type, not formatted strings.
+- Owns its own error handling and HTTP error surfacing.
+
+### Output Formatting
+
+`format.ts` is the single place for user-facing text. It renders:
+
+- Card-based layout with borders and right-aligned values.
+- Progress bars (`[########----------------]`) for quota percentages.
+- Severity thresholds: success (< 50%), warning (50-79%), error (>= 80%).
+- Combined timestamp at the bottom of all provider cards.
 
 ## V1 Shape
 
 - A TUI plugin package exposing `./tui`.
-- A single slash command, `/model-usage`.
-- A provider module dedicated to OpenCode Go.
+- A single slash command, `/model-quota`.
+- Two provider modules only: OpenCode Go and GitHub Copilot. No other providers are supported yet.
+- Providers only run when their credentials are configured; unconfigured providers are skipped silently.
+- If no providers are configured, a clear error message lists the required credentials.
 
 ## Key Technical Choices
 
@@ -62,68 +79,74 @@ The target experience is a unified usage command that can show:
 - Provider module separation: future providers stay isolated.
 - Shared formatter: the command stays stable while providers evolve.
 - Cookie-based OpenCode Go fetcher: currently the most realistic path until an official API is available.
+- GitHub Copilot quota snapshot as primary source: matched to IDE usage; billing endpoint as fallback for personal accounts.
 
 ## Configuration Model
 
-### Preferred
+Priority: `tui.json` plugin options → environment variables.
 
-- TUI plugin options in `tui.json`
-- `workspaceId`
-- `authCookie`
-- `refreshIntervalMinutes`
-
-Example:
+### tui.json Plugin Options
 
 ```json
 {
   "$schema": "https://opencode.ai/tui.json",
   "plugin": [
     [
-      "file:///absolute/path/to/opencode-model-usage/dist/tui.js",
+      "file:///absolute/path/to/opencode-model-quota/dist/tui.js",
       {
-        "workspaceId": "wrk_example",
-        "authCookie": "Fe26.2**example",
-        "refreshIntervalMinutes": 5
+        "opencodeGo": {
+          "workspaceId": "wrk_example",
+          "authCookie": "{env:OPENCODE_GO_AUTH_COOKIE}"
+        },
+        "githubCopilot": {
+          "username": "your-github-login",
+          "token": "{env:GITHUB_COPILOT_TOKEN}",
+          "plan": "pro"
+        }
       }
     ]
   ]
 }
 ```
 
-### Fallback Environment
+### Environment Variables
 
 - `OPENCODE_GO_WORKSPACE_ID`
 - `OPENCODE_GO_AUTH_COOKIE`
-- `OPENCODE_GO_REFRESH_MINUTES`
+- `GITHUB_COPILOT_USERNAME`
+- `GITHUB_COPILOT_TOKEN`
+- `GITHUB_COPILOT_PLAN` — `"pro"` (default) or `"pro+"`
 
-### Fallback File
+String values support `{env:VARIABLE_NAME}` placeholders. Shell command placeholders like `{env:$(gh auth token)}` are explicitly rejected.
 
-- `~/.config/opencode/opencode-model-usage.json`
-- `~/.opencode/opencode-model-usage.json`
-- `<project>/.opencode/opencode-model-usage.json`
+## Provider Quirks
 
-Example:
+### OpenCode Go
 
-```json
-{
-  "opencodeGo": {
-    "workspaceId": "wrk_example",
-    "authCookie": "Fe26.2**example",
-    "refreshIntervalMinutes": 5
-  }
-}
-```
+- Scrapes `https://opencode.ai/workspace/{id}/go` and parses inline JS object literals from HTML.
+- Parsing is fragile; the page format can change without warning.
+- Returns rolling, weekly, and monthly windows with `quotaPercent` and `resetInSec`.
+
+### GitHub Copilot
+
+- **Primary**: `GET /copilot_internal/user` quota snapshot (matches VS Code IDE usage).
+- **Fallback**: `GET /users/{username}/settings/billing/premium_request/usage` (personal billing only; org-managed licenses are not included).
+- Quota snapshot 404s are silently ignored and trigger billing fallback.
+- Auth/permission/rate-limit errors from quota snapshot are **surfaced directly**, not masked by billing fallback errors.
+- `plan` is used for billing fallback to compute percentages; only `"pro"` (300 requests) and `"pro+"` (1500 requests) are supported. Defaults to `"pro"`.
 
 ## Risks
 
-- OpenCode Go usage is currently obtained from the web app, so parsing can break if page structure changes.
+- OpenCode Go quota is currently obtained from the web app, so parsing can break if page structure changes.
 - Cookies expire, so error handling must remain user-friendly.
-- The first version should not overfit around unstable HTML details.
+- GitHub Copilot `copilot_internal` is an internal API and may change or require different scopes.
+- The first version should not overfit around unstable HTML or API response details.
 
 ## Definition Of Done For V1
 
 - Repository has clear agent and project documentation.
-- `/model-usage` is registered by the TUI plugin.
-- The command returns OpenCode Go usage when configured.
+- `/model-quota` is registered by the TUI plugin.
+- The command returns OpenCode Go and/or GitHub Copilot quota when configured.
+- Unconfigured providers are skipped; partial failures are reported alongside successes.
 - Misconfiguration and auth failures produce clear messages.
-- Build succeeds locally.
+- Build succeeds locally and type-checks cleanly.

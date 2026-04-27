@@ -1,4 +1,3 @@
-import crypto from "node:crypto"
 import {
   loadOpenCodeGoConfig,
   type OpenCodeGoConfig,
@@ -6,7 +5,7 @@ import {
 } from "./config.js"
 
 type OpenCodeGoWindow = {
-  usagePercent: number
+  quotaPercent: number
   resetInSec: number
 }
 
@@ -15,65 +14,27 @@ export type OpenCodeGoSnapshot = {
   weekly: OpenCodeGoWindow | null
   monthly: OpenCodeGoWindow | null
   fetchedAt: number
-  stale?: boolean
-  cached?: boolean
 }
 
-type CacheEntry = {
-  configFingerprint: string
-  expiresAt: number
-  snapshot: OpenCodeGoSnapshot
-}
-
-let cache: CacheEntry | null = null
-
-export async function getOpenCodeGoUsage(
-  forceRefresh = false,
+export async function getOpenCodeGoQuota(
   overrides?: OpenCodeGoConfigOverrides,
 ): Promise<OpenCodeGoSnapshot> {
   const config = loadOpenCodeGoConfig(overrides)
-  const now = Date.now()
-  const configFingerprint = createConfigFingerprint(config)
-
-  if (!forceRefresh && cache && cache.configFingerprint === configFingerprint && cache.expiresAt > now) {
-    return {
-      ...cache.snapshot,
-      cached: true,
-    }
-  }
-
-  try {
-    const snapshot = await fetchOpenCodeGoUsage(config)
-    cache = {
-      configFingerprint,
-      snapshot,
-      expiresAt: now + config.refreshIntervalMinutes * 60_000,
-    }
-    return snapshot
-  } catch (error) {
-    if (cache && cache.configFingerprint === configFingerprint) {
-      return {
-        ...cache.snapshot,
-        stale: true,
-      }
-    }
-
-    throw error
-  }
+  return fetchOpenCodeGoQuota(config)
 }
 
-async function fetchOpenCodeGoUsage(config: OpenCodeGoConfig): Promise<OpenCodeGoSnapshot> {
+async function fetchOpenCodeGoQuota(config: OpenCodeGoConfig): Promise<OpenCodeGoSnapshot> {
   let response: Response
   try {
     response = await fetch(`https://opencode.ai/workspace/${encodeURIComponent(config.workspaceId)}/go`, {
       headers: {
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         Cookie: `auth=${config.authCookie}`,
-        "User-Agent": "opencode-model-usage/0.1.0",
+        "User-Agent": "opencode-model-quota/0.1.0",
       },
     })
   } catch {
-    throw new Error("Network error while fetching OpenCode Go usage.")
+    throw new Error("Network error while fetching OpenCode Go quota.")
   }
 
   if (!response.ok) {
@@ -93,7 +54,7 @@ async function fetchOpenCodeGoUsage(config: OpenCodeGoConfig): Promise<OpenCodeG
   }
 
   if (!snapshot.rolling && !snapshot.weekly && !snapshot.monthly) {
-    throw new Error("Could not parse usage data from the OpenCode Go page. The page format may have changed.")
+    throw new Error("Could not parse quota data from the OpenCode Go page. The page format may have changed.")
   }
 
   return snapshot
@@ -104,13 +65,13 @@ function extractWindow(html: string, fieldName: string): OpenCodeGoWindow | null
   if (!objectLiteral) return null
 
   const parsed = parseLooseObjectLiteral(objectLiteral) as Record<string, unknown>
-  const usagePercent = asNumber(parsed.usagePercent)
+  const quotaPercent = asNumber(parsed.usagePercent)
   const resetInSec = asNumber(parsed.resetInSec)
 
-  if (usagePercent === null || resetInSec === null) return null
+  if (quotaPercent === null || resetInSec === null) return null
 
   return {
-    usagePercent: Math.round(usagePercent),
+    quotaPercent: Math.round(quotaPercent),
     resetInSec: Math.max(0, Math.round(resetInSec)),
   }
 }
@@ -118,7 +79,7 @@ function extractWindow(html: string, fieldName: string): OpenCodeGoWindow | null
 function extractObjectLiteral(html: string, fieldName: string): string | null {
   const patterns = [
     new RegExp(`${escapeRegExp(fieldName)}\\s*:\\s*\\$R\\[\\d+\\]\\s*=\\s*\\{`),
-    new RegExp(`\"${escapeRegExp(fieldName)}\"\\s*:\\s*\\{`),
+    new RegExp(`"${escapeRegExp(fieldName)}"\\s*:\\s*\\{`),
     new RegExp(`${escapeRegExp(fieldName)}\\s*:\\s*\\{`),
     new RegExp(`${escapeRegExp(fieldName)}\\s*=\\s*\\{`),
   ]
@@ -197,7 +158,7 @@ function parseLooseObjectLiteral(input: string): unknown {
   try {
     return JSON.parse(normalized)
   } catch {
-    throw new Error("Could not parse an OpenCode Go usage payload.")
+    throw new Error("Could not parse an OpenCode Go quota payload.")
   }
 }
 
@@ -214,12 +175,4 @@ function asNumber(value: unknown): number | null {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-}
-
-function createConfigFingerprint(config: OpenCodeGoConfig): string {
-  return JSON.stringify({
-    workspaceId: config.workspaceId,
-    authCookie: crypto.createHash("sha256").update(config.authCookie).digest("hex"),
-    refreshIntervalMinutes: config.refreshIntervalMinutes,
-  })
 }

@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Documentation
-    url: https://github.com/whosydd/opencode-model-usage#readme
-    about: Check the README for usage instructions
+    url: https://github.com/whosydd/opencode-model-quota#readme
+    about: Check the README for quota instructions
   - name: Discussions
-    url: https://github.com/whosydd/opencode-model-usage/discussions
+    url: https://github.com/whosydd/opencode-model-quota/discussions
     about: Ask questions and share ideas with the community

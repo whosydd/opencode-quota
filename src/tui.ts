@@ -4,71 +4,116 @@ import {
   loadOptionalOpenCodeGoConfig,
   type PluginConfigOverrides,
 } from "./config.js"
-import { getGitHubCopilotUsage } from "./github-copilot.js"
-import { formatGitHubCopilotMessage, formatOpenCodeGoMessage, formatUsageMessage } from "./format.js"
-import { getOpenCodeGoUsage } from "./opencode-go.js"
+import {
+  formatGitHubCopilotMessage,
+  formatOpenCodeGoMessage,
+  formatQuotaLoadingMessage,
+  formatQuotaMessage,
+} from "./format.js"
+import { getGitHubCopilotQuota } from "./github-copilot.js"
+import { getOpenCodeGoQuota } from "./opencode-go.js"
 
-const COMMAND_VALUE = "model-usage.show"
-const REFRESH_COMMAND_VALUE = "model-usage.refresh"
+const COMMAND_VALUE = "model-quota.show"
+const LOADING_FRAMES = ["|", "/", "-", "\\"]
+
+let activeQuotaRequestId = 0
+let stopActiveLoading: (() => void) | undefined
 
 const tui: TuiPlugin = async (api, options) => {
   const configOverrides = options as PluginConfigOverrides | undefined
 
   api.command.register(() => [
     {
-      title: "Model Usage",
+      title: "Show model quota",
       value: COMMAND_VALUE,
-      description: "Show configured model usage",
-      category: "Usage",
+      category: "Quota",
       suggested: true,
       slash: {
-        name: "model-usage",
-        aliases: ["go-usage", "copilot-usage"],
+        name: "model-quota",
       },
-      onSelect: () => showUsageDialog(api, configOverrides, false),
-    },
-    {
-      title: "Model Usage Refresh",
-      value: REFRESH_COMMAND_VALUE,
-      description: "Force refresh configured model usage",
-      category: "Usage",
-      slash: {
-        name: "model-usage-refresh",
-        aliases: ["go-usage-refresh", "copilot-usage-refresh"],
-      },
-      onSelect: () => showUsageDialog(api, configOverrides, true),
+      onSelect: () => showQuotaDialog(api, configOverrides),
     },
   ])
 }
 
-async function showUsageDialog(
+async function showQuotaDialog(
   api: Parameters<TuiPlugin>[0],
   configOverrides: PluginConfigOverrides | undefined,
-  forceRefresh: boolean,
 ): Promise<void> {
+  stopActiveLoading?.()
+
+  const requestId = ++activeQuotaRequestId
+  let loadingFrame = 0
+  let loadingTimer: ReturnType<typeof setInterval> | undefined
+  const stopLoading = () => {
+    if (loadingTimer) {
+      clearInterval(loadingTimer)
+      loadingTimer = undefined
+    }
+
+    if (stopActiveLoading === stopLoading) {
+      stopActiveLoading = undefined
+    }
+  }
+  const closeLoadingDialog = () => {
+    if (activeQuotaRequestId === requestId) {
+      activeQuotaRequestId++
+    }
+
+    stopLoading()
+
+    api.ui.dialog.clear()
+  }
+  const renderLoadingDialog = () => {
+    api.ui.dialog.replace(() =>
+      api.ui.DialogAlert({
+        title: "Model Quota",
+        message: formatQuotaLoadingMessage(LOADING_FRAMES[loadingFrame]),
+        onConfirm: closeLoadingDialog,
+      }),
+    )
+  }
+
+  stopActiveLoading = stopLoading
+  renderLoadingDialog()
+  loadingTimer = setInterval(() => {
+    if (activeQuotaRequestId !== requestId) return
+
+    loadingFrame = (loadingFrame + 1) % LOADING_FRAMES.length
+    renderLoadingDialog()
+  }, 180)
+
   try {
-    const message = await buildUsageMessage(forceRefresh, configOverrides)
+    const message = await buildQuotaMessage(configOverrides)
+
+    if (activeQuotaRequestId !== requestId) return
+    stopLoading()
 
     api.ui.dialog.replace(() =>
       api.ui.DialogAlert({
-        title: "Model Usage",
+        title: "Model Quota",
         message,
         onConfirm: () => api.ui.dialog.clear(),
       }),
     )
   } catch (error) {
+    if (activeQuotaRequestId !== requestId) return
+
+    stopLoading()
+
     api.ui.dialog.replace(() =>
       api.ui.DialogAlert({
-        title: "Model Usage Error",
-        message: error instanceof Error ? error.message : "Failed to fetch usage.",
+        title: "Model Quota Error",
+        message: error instanceof Error ? error.message : "Failed to fetch quota.",
         onConfirm: () => api.ui.dialog.clear(),
       }),
     )
+  } finally {
+    stopLoading()
   }
 }
 
-async function buildUsageMessage(
-  forceRefresh: boolean,
+async function buildQuotaMessage(
   configOverrides: PluginConfigOverrides | undefined,
 ): Promise<string> {
   const tasks: Array<Promise<string>> = []
@@ -76,7 +121,7 @@ async function buildUsageMessage(
 
   try {
     if (loadOptionalOpenCodeGoConfig(configOverrides)) {
-      tasks.push(getOpenCodeGoUsage(forceRefresh, configOverrides).then(formatOpenCodeGoMessage))
+      tasks.push(getOpenCodeGoQuota(configOverrides).then(formatOpenCodeGoMessage))
     }
   } catch (error) {
     errors.push(errorMessage(error))
@@ -84,7 +129,7 @@ async function buildUsageMessage(
 
   try {
     if (loadOptionalGitHubCopilotConfig(configOverrides)) {
-      tasks.push(getGitHubCopilotUsage(forceRefresh, configOverrides).then(formatGitHubCopilotMessage))
+      tasks.push(getGitHubCopilotQuota(configOverrides).then(formatGitHubCopilotMessage))
     }
   } catch (error) {
     errors.push(errorMessage(error))
@@ -96,12 +141,13 @@ async function buildUsageMessage(
     }
 
     throw new Error(
-      "No usage providers are configured. Set OpenCode Go and/or GitHub Copilot credentials in tui.json, environment variables, or opencode-model-usage.json.",
+      "No quota providers are configured. Set OpenCode Go and/or GitHub Copilot credentials in tui.json, environment variables, or opencode-model-quota.json.",
     )
   }
 
   const results = await Promise.allSettled(tasks)
   const messages: string[] = []
+  const fetchedAt = Date.now()
 
   for (const result of results) {
     if (result.status === "fulfilled") {
@@ -120,11 +166,11 @@ async function buildUsageMessage(
     messages.push(`Provider errors:\n- ${errors.join("\n- ")}`)
   }
 
-  return formatUsageMessage(messages)
+  return formatQuotaMessage(messages, fetchedAt)
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Failed to fetch usage."
+  return error instanceof Error ? error.message : "Failed to fetch quota."
 }
 
 const plugin: TuiPluginModule & { id: string } = {

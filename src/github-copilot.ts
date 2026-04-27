@@ -1,11 +1,10 @@
-import crypto from "node:crypto"
 import {
   loadGitHubCopilotConfig,
   type GitHubCopilotConfig,
   type GitHubCopilotConfigOverrides,
 } from "./config.js"
 
-type GitHubBillingUsageItem = {
+type GitHubBillingQuotaItem = {
   product?: unknown
   sku?: unknown
   model?: unknown
@@ -16,7 +15,7 @@ type GitHubBillingUsageItem = {
   netAmount?: unknown
 }
 
-type GitHubBillingUsageResponse = {
+type GitHubBillingQuotaResponse = {
   timePeriod?: {
     year?: unknown
     month?: unknown
@@ -44,75 +43,42 @@ type GitHubCopilotUserInfoResponse = {
 
 export type GitHubCopilotSnapshot = {
   username: string
-  usageMonth: {
+  quotaMonth: {
     year: number
     month: number
   }
   usedPremiumRequests: number
   monthlyAllowance: number | null
-  usagePercent: number
+  quotaPercent: number
   overageRequests: number
   resetAt: number
   fetchedAt: number
   source: "quota-snapshot" | "billing"
-  stale?: boolean
-  cached?: boolean
 }
 
-type UsageTotals = {
+type QuotaTotals = {
   usedPremiumRequests: number
   includedRequests: number
   billableRequests: number
 }
 
-type CacheEntry = {
-  configFingerprint: string
-  expiresAt: number
-  snapshot: GitHubCopilotSnapshot
+const PLAN_ALLOWANCE: Record<GitHubCopilotConfig["plan"], number> = {
+  pro: 300,
+  "pro+": 1500,
 }
 
-let cache: CacheEntry | null = null
-
-export async function getGitHubCopilotUsage(
-  forceRefresh = false,
+export async function getGitHubCopilotQuota(
   overrides?: GitHubCopilotConfigOverrides,
 ): Promise<GitHubCopilotSnapshot> {
   const config = loadGitHubCopilotConfig(overrides)
-  const now = Date.now()
-  const configFingerprint = createConfigFingerprint(config)
-
-  if (!forceRefresh && cache && cache.configFingerprint === configFingerprint && cache.expiresAt > now) {
-    return {
-      ...cache.snapshot,
-      cached: true,
-    }
-  }
-
-  try {
-    const snapshot = await fetchGitHubCopilotUsage(config)
-    cache = {
-      configFingerprint,
-      snapshot,
-      expiresAt: now + config.refreshIntervalMinutes * 60_000,
-    }
-    return snapshot
-  } catch (error) {
-    if (cache && cache.configFingerprint === configFingerprint) {
-      return {
-        ...cache.snapshot,
-        stale: true,
-      }
-    }
-
-    throw error
-  }
+  return fetchGitHubCopilotQuota(config)
 }
 
-async function fetchGitHubCopilotUsage(config: GitHubCopilotConfig): Promise<GitHubCopilotSnapshot> {
+async function fetchGitHubCopilotQuota(config: GitHubCopilotConfig): Promise<GitHubCopilotSnapshot> {
   const quotaSnapshot = await fetchGitHubCopilotQuotaSnapshot(config)
   if (quotaSnapshot) return quotaSnapshot
 
-  return fetchGitHubCopilotBillingUsage(config)
+  return fetchGitHubCopilotBillingQuota(config)
 }
 
 async function fetchGitHubCopilotQuotaSnapshot(config: GitHubCopilotConfig): Promise<GitHubCopilotSnapshot | null> {
@@ -122,7 +88,7 @@ async function fetchGitHubCopilotQuotaSnapshot(config: GitHubCopilotConfig): Pro
       headers: {
         Accept: "application/json",
         Authorization: `token ${config.token}`,
-        "User-Agent": "opencode-model-usage/0.1.0",
+        "User-Agent": "opencode-model-quota/0.1.0",
         "X-GitHub-Api-Version": "2025-04-01",
       },
     })
@@ -154,7 +120,7 @@ async function fetchGitHubCopilotQuotaSnapshot(config: GitHubCopilotConfig): Pro
   return toQuotaSnapshot(payload, config)
 }
 
-async function fetchGitHubCopilotBillingUsage(config: GitHubCopilotConfig): Promise<GitHubCopilotSnapshot> {
+async function fetchGitHubCopilotBillingQuota(config: GitHubCopilotConfig): Promise<GitHubCopilotSnapshot> {
   const now = new Date()
   const year = now.getUTCFullYear()
   const month = now.getUTCMonth() + 1
@@ -168,12 +134,12 @@ async function fetchGitHubCopilotBillingUsage(config: GitHubCopilotConfig): Prom
       headers: {
         Accept: "application/vnd.github+json",
         Authorization: `Bearer ${config.token}`,
-        "User-Agent": "opencode-model-usage/0.1.0",
+        "User-Agent": "opencode-model-quota/0.1.0",
         "X-GitHub-Api-Version": "2026-03-10",
       },
     })
   } catch {
-    throw new Error("Network error while fetching GitHub Copilot billing usage.")
+    throw new Error("Network error while fetching GitHub Copilot billing quota.")
   }
 
   if (!response.ok) {
@@ -182,19 +148,19 @@ async function fetchGitHubCopilotBillingUsage(config: GitHubCopilotConfig): Prom
     }
 
     if (response.status === 403) {
-      throw new Error("GitHub Copilot request was forbidden. Check that your token has the user scope and can read billing usage.")
+      throw new Error("GitHub Copilot request was forbidden. Check that your token has the user scope and can read billing quota.")
     }
 
     if (response.status === 404) {
       throw new Error(
-        "GitHub Copilot billing usage was not found for this account. This endpoint requires a personal billing account and a token with the user scope; organization-managed Copilot licenses are not included.",
+        "GitHub Copilot billing quota was not found for this account. This endpoint requires a personal billing account and a token with the user scope; organization-managed Copilot licenses are not included.",
       )
     }
 
     throw new Error(`GitHub Copilot request failed with HTTP ${response.status}.`)
   }
 
-  const payload = (await response.json()) as GitHubBillingUsageResponse
+  const payload = (await response.json()) as GitHubBillingQuotaResponse
   return toBillingSnapshot(payload, config)
 }
 
@@ -211,7 +177,7 @@ function toQuotaSnapshot(
   const percentRemaining = asNumber(premiumInteractions.percent_remaining)
   const overageRequests = Math.max(0, asNumber(premiumInteractions.overage_count) ?? 0)
   const resetAt = parseResetTimestamp(premiumInteractions.reset_date ?? payload.quota_reset_date)
-  const usageMonth = resetAt ? usageMonthFromResetAt(resetAt) : currentUsageMonth()
+  const quotaMonth = resetAt ? quotaMonthFromResetAt(resetAt) : currentQuotaMonth()
 
   const monthlyAllowance = unlimited ? null : entitlement ?? null
   const usedPremiumRequests = unlimited
@@ -220,39 +186,39 @@ function toQuotaSnapshot(
 
   return {
     username: config.username,
-    usageMonth,
+    quotaMonth,
     usedPremiumRequests,
     monthlyAllowance,
-    usagePercent: toUsagePercent(usedPremiumRequests, monthlyAllowance, percentRemaining),
+    quotaPercent: toQuotaPercent(usedPremiumRequests, monthlyAllowance, percentRemaining),
     overageRequests,
-    resetAt: resetAt ?? Date.UTC(usageMonth.year, usageMonth.month, 1, 0, 0, 0),
+    resetAt: resetAt ?? Date.UTC(quotaMonth.year, quotaMonth.month, 1, 0, 0, 0),
     fetchedAt: Date.now(),
     source: "quota-snapshot",
   }
 }
 
 function toBillingSnapshot(
-  payload: GitHubBillingUsageResponse,
-  config: Pick<GitHubCopilotConfig, "username" | "monthlyAllowance">,
+  payload: GitHubBillingQuotaResponse,
+  config: Pick<GitHubCopilotConfig, "username" | "plan">,
 ): GitHubCopilotSnapshot {
-  const usageMonth = parseUsageMonth(payload.timePeriod)
-  const totals = aggregateUsageTotals(payload.usageItems)
-  const monthlyAllowance = resolveMonthlyAllowance(config.monthlyAllowance, totals)
+  const quotaMonth = parseQuotaMonth(payload.timePeriod)
+  const totals = aggregateQuotaTotals(payload.usageItems)
+  const monthlyAllowance = resolveMonthlyAllowance(config.plan, totals)
 
   return {
     username: asTrimmedString(payload.user) ?? config.username,
-    usageMonth,
+    quotaMonth,
     usedPremiumRequests: totals.usedPremiumRequests,
     monthlyAllowance,
-    usagePercent: toUsagePercent(totals.usedPremiumRequests, monthlyAllowance),
+    quotaPercent: toQuotaPercent(totals.usedPremiumRequests, monthlyAllowance),
     overageRequests: totals.billableRequests,
-    resetAt: Date.UTC(usageMonth.year, usageMonth.month, 1, 0, 0, 0),
+    resetAt: Date.UTC(quotaMonth.year, quotaMonth.month, 1, 0, 0, 0),
     fetchedAt: Date.now(),
     source: "billing",
   }
 }
 
-function parseUsageMonth(timePeriod: GitHubBillingUsageResponse["timePeriod"]): GitHubCopilotSnapshot["usageMonth"] {
+function parseQuotaMonth(timePeriod: GitHubBillingQuotaResponse["timePeriod"]): GitHubCopilotSnapshot["quotaMonth"] {
   const now = new Date()
   const year = asPositiveInteger(timePeriod?.year) ?? now.getUTCFullYear()
   const month = asMonth(timePeriod?.month) ?? now.getUTCMonth() + 1
@@ -260,7 +226,7 @@ function parseUsageMonth(timePeriod: GitHubBillingUsageResponse["timePeriod"]): 
   return { year, month }
 }
 
-function aggregateUsageTotals(input: unknown): UsageTotals {
+function aggregateQuotaTotals(input: unknown): QuotaTotals {
   if (!Array.isArray(input)) {
     return {
       usedPremiumRequests: 0,
@@ -269,7 +235,7 @@ function aggregateUsageTotals(input: unknown): UsageTotals {
     }
   }
 
-  const totals: UsageTotals = {
+  const totals: QuotaTotals = {
     usedPremiumRequests: 0,
     includedRequests: 0,
     billableRequests: 0,
@@ -278,7 +244,7 @@ function aggregateUsageTotals(input: unknown): UsageTotals {
   for (const rawItem of input) {
     if (!rawItem || typeof rawItem !== "object") continue
 
-    const item = rawItem as GitHubBillingUsageItem
+    const item = rawItem as GitHubBillingQuotaItem
 
     totals.usedPremiumRequests += asNumber(item.grossQuantity) ?? 0
     totals.includedRequests += asNumber(item.discountQuantity) ?? 0
@@ -288,7 +254,7 @@ function aggregateUsageTotals(input: unknown): UsageTotals {
   return totals
 }
 
-function currentUsageMonth(): GitHubCopilotSnapshot["usageMonth"] {
+function currentQuotaMonth(): GitHubCopilotSnapshot["quotaMonth"] {
   const now = new Date()
   return {
     year: now.getUTCFullYear(),
@@ -296,8 +262,8 @@ function currentUsageMonth(): GitHubCopilotSnapshot["usageMonth"] {
   }
 }
 
-function usageMonthFromResetAt(resetAt: number): GitHubCopilotSnapshot["usageMonth"] {
-  return parseUsageMonth({
+function quotaMonthFromResetAt(resetAt: number): GitHubCopilotSnapshot["quotaMonth"] {
+  return parseQuotaMonth({
     year: new Date(resetAt - 1000).getUTCFullYear(),
     month: new Date(resetAt - 1000).getUTCMonth() + 1,
   })
@@ -329,29 +295,15 @@ function resolveUsedPremiumRequests(
   return Math.max(0, overageRequests)
 }
 
-function resolveMonthlyAllowance(configuredAllowance: number | null, totals: UsageTotals): number {
-  if (configuredAllowance != null && configuredAllowance > 0) {
-    return configuredAllowance
-  }
-
+function resolveMonthlyAllowance(plan: GitHubCopilotConfig["plan"], totals: QuotaTotals): number {
   if (totals.billableRequests > 0 && totals.includedRequests > 0) {
     return Math.round(totals.includedRequests)
   }
 
-  if (totals.includedRequests > 300) {
-    return 1500
-  }
-
-  throw new Error(
-    [
-      "GitHub Copilot monthly allowance is required to show premium request usage as a percentage.",
-      "Set githubCopilot.monthlyAllowance or GITHUB_COPILOT_MONTHLY_ALLOWANCE.",
-      "Use 300 for Copilot Pro or 1500 for Copilot Pro+.",
-    ].join(" "),
-  )
+  return PLAN_ALLOWANCE[plan]
 }
 
-function toUsagePercent(
+function toQuotaPercent(
   usedPremiumRequests: number,
   monthlyAllowance: number | null,
   percentRemaining?: number | null,
@@ -388,13 +340,4 @@ function asMonth(value: unknown): number | null {
   const month = asPositiveInteger(value)
   if (month && month >= 1 && month <= 12) return month
   return null
-}
-
-function createConfigFingerprint(config: GitHubCopilotConfig): string {
-  return JSON.stringify({
-    username: config.username,
-    token: crypto.createHash("sha256").update(config.token).digest("hex"),
-    refreshIntervalMinutes: config.refreshIntervalMinutes,
-    monthlyAllowance: config.monthlyAllowance,
-  })
 }
