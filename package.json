@@ -1,12 +1,35 @@
 {
   "name": "opencode-model-quota",
   "version": "0.1.0",
-  "description": "OpenCode TUI plugin for model and subscription quota status.",
+  "description": "OpenCode TUI plugin for checking model and subscription quota (OpenCode Go, GitHub Copilot).",
   "type": "module",
+  "author": "GY <dev.youngkwok718@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/whosydd/opencode-model-usage",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/whosydd/opencode-model-usage.git"
+  },
+  "keywords": [
+    "opencode",
+    "tui",
+    "plugin",
+    "quota",
+    "github-copilot",
+    "ai"
+  ],
+  "main": "./dist/tui.js",
+  "types": "./dist/tui.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "README.zh.md"
   ],
   "exports": {
+    ".": {
+      "import": "./dist/tui.js",
+      "types": "./dist/tui.d.ts"
+    },
     "./tui": {
       "import": "./dist/tui.js",
       "types": "./dist/tui.d.ts"
@@ -14,7 +37,8 @@
   },
   "scripts": {
     "build": "tsup src/tui.ts --format esm --dts --out-dir dist --clean --external @opentui/solid",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm run typecheck"
   },
   "engines": {
     "node": ">=18",
