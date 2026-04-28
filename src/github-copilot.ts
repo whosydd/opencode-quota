@@ -1,28 +1,4 @@
-import {
-  loadGitHubCopilotConfig,
-  type GitHubCopilotConfig,
-  type GitHubCopilotConfigOverrides,
-} from "./config.js"
-
-type GitHubBillingQuotaItem = {
-  product?: unknown
-  sku?: unknown
-  model?: unknown
-  unitType?: unknown
-  grossQuantity?: unknown
-  discountQuantity?: unknown
-  netQuantity?: unknown
-  netAmount?: unknown
-}
-
-type GitHubBillingQuotaResponse = {
-  timePeriod?: {
-    year?: unknown
-    month?: unknown
-  }
-  user?: unknown
-  usageItems?: unknown
-}
+import { readAuthFileCached, resolveCopilotAuth, isAuthExpired } from "./opencode-auth.js"
 
 type GitHubCopilotQuotaSnapshot = {
   entitlement?: unknown
@@ -42,7 +18,6 @@ type GitHubCopilotUserInfoResponse = {
 }
 
 export type GitHubCopilotSnapshot = {
-  username: string
   quotaMonth: {
     year: number
     month: number
@@ -53,120 +28,68 @@ export type GitHubCopilotSnapshot = {
   overageRequests: number
   resetAt: number
   fetchedAt: number
-  source: "quota-snapshot" | "billing"
+  source: "oauth-snapshot"
 }
 
-type QuotaTotals = {
-  usedPremiumRequests: number
-  includedRequests: number
-  billableRequests: number
-}
+export async function getGitHubCopilotQuota(): Promise<GitHubCopilotSnapshot> {
+  const auth = await readAuthFileCached()
+  const resolved = resolveCopilotAuth(auth)
 
-const PLAN_ALLOWANCE: Record<GitHubCopilotConfig["plan"], number> = {
-  pro: 300,
-  "pro+": 1500,
-}
+  if (!resolved) {
+    throw new Error("GitHub Copilot is not configured. Log in to GitHub Copilot through OpenCode.")
+  }
 
-export async function getGitHubCopilotQuota(
-  overrides?: GitHubCopilotConfigOverrides,
-): Promise<GitHubCopilotSnapshot> {
-  const config = loadGitHubCopilotConfig(overrides)
-  return fetchGitHubCopilotQuota(config)
-}
+  if (isAuthExpired(resolved.expiresAt)) {
+    throw new Error("GitHub Copilot authentication expired. Log in to GitHub Copilot again through OpenCode.")
+  }
 
-async function fetchGitHubCopilotQuota(config: GitHubCopilotConfig): Promise<GitHubCopilotSnapshot> {
-  const quotaSnapshot = await fetchGitHubCopilotQuotaSnapshot(config)
-  if (quotaSnapshot) return quotaSnapshot
-
-  return fetchGitHubCopilotBillingQuota(config)
-}
-
-async function fetchGitHubCopilotQuotaSnapshot(config: GitHubCopilotConfig): Promise<GitHubCopilotSnapshot | null> {
   let response: Response
   try {
     response = await fetch("https://api.github.com/copilot_internal/user", {
       headers: {
         Accept: "application/json",
-        Authorization: `token ${config.token}`,
-        "User-Agent": "opencode-model-quota/0.1.1",
+        Authorization: `Bearer ${resolved.accessToken}`,
+        "User-Agent": "opencode-model-quota/0.2.0",
         "X-GitHub-Api-Version": "2025-04-01",
       },
     })
   } catch {
-    throw new Error("Network error while fetching GitHub Copilot quota snapshot.")
+    throw new Error("Network error while fetching GitHub Copilot quota (OAuth).")
   }
 
   if (!response.ok) {
     if (response.status === 404) {
-      return null
+      throw new Error("GitHub Copilot quota snapshot is unavailable for this OpenCode session or account.")
     }
 
     if (response.status === 401) {
-      throw new Error("GitHub Copilot authentication failed. Refresh your API token.")
+      throw new Error("GitHub Copilot OAuth authentication failed. Your session may have expired.")
     }
 
     if (response.status === 403) {
-      throw new Error("GitHub Copilot quota request was forbidden. Check that your token can access Copilot quota data.")
+      throw new Error("GitHub Copilot OAuth quota request was forbidden.")
     }
 
     if (response.status === 429) {
       throw new Error("GitHub Copilot quota request was rate limited. Try again shortly.")
     }
 
-    throw new Error(`GitHub Copilot quota request failed with HTTP ${response.status}.`)
+    throw new Error(`GitHub Copilot OAuth quota request failed with HTTP ${response.status}.`)
   }
 
   const payload = (await response.json()) as GitHubCopilotUserInfoResponse
-  return toQuotaSnapshot(payload, config)
-}
-
-async function fetchGitHubCopilotBillingQuota(config: GitHubCopilotConfig): Promise<GitHubCopilotSnapshot> {
-  const now = new Date()
-  const year = now.getUTCFullYear()
-  const month = now.getUTCMonth() + 1
-  const url = new URL(`https://api.github.com/users/${encodeURIComponent(config.username)}/settings/billing/premium_request/usage`)
-  url.searchParams.set("year", String(year))
-  url.searchParams.set("month", String(month))
-
-  let response: Response
-  try {
-    response = await fetch(url, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${config.token}`,
-        "User-Agent": "opencode-model-quota/0.1.1",
-        "X-GitHub-Api-Version": "2026-03-10",
-      },
-    })
-  } catch {
-    throw new Error("Network error while fetching GitHub Copilot billing quota.")
+  const snapshot = toQuotaSnapshotFromOAuth(payload)
+  if (!snapshot) {
+    throw new Error("GitHub Copilot quota snapshot did not include premium request data.")
   }
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("GitHub Copilot authentication failed. Refresh your API token.")
-    }
-
-    if (response.status === 403) {
-      throw new Error("GitHub Copilot request was forbidden. Check that your token has the user scope and can read billing quota.")
-    }
-
-    if (response.status === 404) {
-      throw new Error(
-        "GitHub Copilot billing quota was not found for this account. This endpoint requires a personal billing account and a token with the user scope; organization-managed Copilot licenses are not included.",
-      )
-    }
-
-    throw new Error(`GitHub Copilot request failed with HTTP ${response.status}.`)
-  }
-
-  const payload = (await response.json()) as GitHubBillingQuotaResponse
-  return toBillingSnapshot(payload, config)
+  return snapshot
 }
 
-function toQuotaSnapshot(
+
+
+function toQuotaSnapshotFromOAuth(
   payload: GitHubCopilotUserInfoResponse,
-  config: Pick<GitHubCopilotConfig, "username">,
 ): GitHubCopilotSnapshot | null {
   const premiumInteractions = payload.quota_snapshots?.premium_interactions
   if (!premiumInteractions) return null
@@ -185,7 +108,6 @@ function toQuotaSnapshot(
     : resolveUsedPremiumRequests(entitlement, remaining, percentRemaining, overageRequests)
 
   return {
-    username: config.username,
     quotaMonth,
     usedPremiumRequests,
     monthlyAllowance,
@@ -193,65 +115,8 @@ function toQuotaSnapshot(
     overageRequests,
     resetAt: resetAt ?? Date.UTC(quotaMonth.year, quotaMonth.month, 1, 0, 0, 0),
     fetchedAt: Date.now(),
-    source: "quota-snapshot",
+    source: "oauth-snapshot",
   }
-}
-
-function toBillingSnapshot(
-  payload: GitHubBillingQuotaResponse,
-  config: Pick<GitHubCopilotConfig, "username" | "plan">,
-): GitHubCopilotSnapshot {
-  const quotaMonth = parseQuotaMonth(payload.timePeriod)
-  const totals = aggregateQuotaTotals(payload.usageItems)
-  const monthlyAllowance = resolveMonthlyAllowance(config.plan, totals)
-
-  return {
-    username: asTrimmedString(payload.user) ?? config.username,
-    quotaMonth,
-    usedPremiumRequests: totals.usedPremiumRequests,
-    monthlyAllowance,
-    quotaPercent: toQuotaPercent(totals.usedPremiumRequests, monthlyAllowance),
-    overageRequests: totals.billableRequests,
-    resetAt: Date.UTC(quotaMonth.year, quotaMonth.month, 1, 0, 0, 0),
-    fetchedAt: Date.now(),
-    source: "billing",
-  }
-}
-
-function parseQuotaMonth(timePeriod: GitHubBillingQuotaResponse["timePeriod"]): GitHubCopilotSnapshot["quotaMonth"] {
-  const now = new Date()
-  const year = asPositiveInteger(timePeriod?.year) ?? now.getUTCFullYear()
-  const month = asMonth(timePeriod?.month) ?? now.getUTCMonth() + 1
-
-  return { year, month }
-}
-
-function aggregateQuotaTotals(input: unknown): QuotaTotals {
-  if (!Array.isArray(input)) {
-    return {
-      usedPremiumRequests: 0,
-      includedRequests: 0,
-      billableRequests: 0,
-    }
-  }
-
-  const totals: QuotaTotals = {
-    usedPremiumRequests: 0,
-    includedRequests: 0,
-    billableRequests: 0,
-  }
-
-  for (const rawItem of input) {
-    if (!rawItem || typeof rawItem !== "object") continue
-
-    const item = rawItem as GitHubBillingQuotaItem
-
-    totals.usedPremiumRequests += asNumber(item.grossQuantity) ?? 0
-    totals.includedRequests += asNumber(item.discountQuantity) ?? 0
-    totals.billableRequests += asNumber(item.netQuantity) ?? 0
-  }
-
-  return totals
 }
 
 function currentQuotaMonth(): GitHubCopilotSnapshot["quotaMonth"] {
@@ -263,10 +128,11 @@ function currentQuotaMonth(): GitHubCopilotSnapshot["quotaMonth"] {
 }
 
 function quotaMonthFromResetAt(resetAt: number): GitHubCopilotSnapshot["quotaMonth"] {
-  return parseQuotaMonth({
-    year: new Date(resetAt - 1000).getUTCFullYear(),
-    month: new Date(resetAt - 1000).getUTCMonth() + 1,
-  })
+  const date = new Date(resetAt - 1000)
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+  }
 }
 
 function parseResetTimestamp(value: unknown): number | null {
@@ -295,14 +161,6 @@ function resolveUsedPremiumRequests(
   return Math.max(0, overageRequests)
 }
 
-function resolveMonthlyAllowance(plan: GitHubCopilotConfig["plan"], totals: QuotaTotals): number {
-  if (totals.billableRequests > 0 && totals.includedRequests > 0) {
-    return Math.round(totals.includedRequests)
-  }
-
-  return PLAN_ALLOWANCE[plan]
-}
-
 function toQuotaPercent(
   usedPremiumRequests: number,
   monthlyAllowance: number | null,
@@ -316,10 +174,6 @@ function toQuotaPercent(
   return Number(((usedPremiumRequests / monthlyAllowance) * 100).toFixed(1))
 }
 
-function asTrimmedString(value: unknown): string | undefined {
-  return typeof value === "string" ? value.trim() || undefined : undefined
-}
-
 function asNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value
 
@@ -328,16 +182,5 @@ function asNumber(value: unknown): number | null {
     if (Number.isFinite(parsed)) return parsed
   }
 
-  return null
-}
-
-function asPositiveInteger(value: unknown): number | null {
-  if (typeof value === "number" && Number.isInteger(value) && value > 0) return value
-  return null
-}
-
-function asMonth(value: unknown): number | null {
-  const month = asPositiveInteger(value)
-  if (month && month >= 1 && month <= 12) return month
   return null
 }

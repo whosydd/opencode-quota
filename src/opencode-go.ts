@@ -30,7 +30,7 @@ async function fetchOpenCodeGoQuota(config: OpenCodeGoConfig): Promise<OpenCodeG
       headers: {
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         Cookie: `auth=${config.authCookie}`,
-        "User-Agent": "opencode-model-quota/0.1.1",
+        "User-Agent": "opencode-model-quota/0.2.0",
       },
     })
   } catch {

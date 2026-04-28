@@ -1,20 +1,22 @@
 import type { TuiPlugin, TuiPluginModule } from "@opencode-ai/plugin/tui"
 import {
-  loadOptionalGitHubCopilotConfig,
   loadOptionalOpenCodeGoConfig,
   type PluginConfigOverrides,
 } from "./config.js"
 import {
   formatGitHubCopilotMessage,
+  formatOpenAIMessage,
   formatOpenCodeGoMessage,
   formatQuotaLoadingMessage,
   formatQuotaMessage,
 } from "./format.js"
 import { getGitHubCopilotQuota } from "./github-copilot.js"
+import { getOpenAIQuota } from "./openai.js"
 import { getOpenCodeGoQuota } from "./opencode-go.js"
+import { readAuthFileCached, resolveOpenAIAuth, resolveCopilotAuth } from "./opencode-auth.js"
 
 const COMMAND_VALUE = "model-quota.show"
-const LOADING_FRAMES = ["|", "/", "-", "\\"]
+const LOADING_FRAMES = ["○", "◐", "◑", "●"]
 
 let activeQuotaRequestId = 0
 let stopActiveLoading: (() => void) | undefined
@@ -128,8 +130,27 @@ async function buildQuotaMessage(
   }
 
   try {
-    if (loadOptionalGitHubCopilotConfig(configOverrides)) {
-      tasks.push(getGitHubCopilotQuota(configOverrides).then(formatGitHubCopilotMessage))
+    const auth = await readAuthFileCached()
+    const hasOAuthCopilot = resolveCopilotAuth(auth) !== null
+
+    if (hasOAuthCopilot) {
+      tasks.push(getGitHubCopilotQuota().then(formatGitHubCopilotMessage))
+    }
+  } catch (error) {
+    errors.push(errorMessage(error))
+  }
+
+  try {
+    const auth = await readAuthFileCached()
+    const hasOpenAI = resolveOpenAIAuth(auth) !== null
+
+    if (hasOpenAI) {
+      tasks.push(
+        getOpenAIQuota().then((snapshot) => {
+          if (!snapshot) throw new Error("OpenAI quota data not available.")
+          return formatOpenAIMessage(snapshot)
+        }),
+      )
     }
   } catch (error) {
     errors.push(errorMessage(error))
@@ -141,7 +162,7 @@ async function buildQuotaMessage(
     }
 
     throw new Error(
-      "No quota providers are configured. Set OpenCode Go and/or GitHub Copilot credentials in tui.json, environment variables, or opencode-model-quota.json.",
+      "No quota providers are configured. Set OpenCode Go credentials in tui.json or environment variables, and log in to GitHub Copilot and/or OpenAI through OpenCode.",
     )
   }
 
