@@ -52,7 +52,7 @@ Updated: Apr 27, 2:30 PM
       "opencode-model-quota",
       {
         "opencodeGo": {
-          "workspaceId": "wrk_your_workspace_id",
+          "workspaceId": "{env:OPENCODE_GO_WORKSPACE_ID}",
           "authCookie": "{env:OPENCODE_GO_AUTH_COOKIE}"
         },
       }
@@ -67,8 +67,8 @@ Updated: Apr 27, 2:30 PM
 <summary>手动构建（开发人员）</summary>
 
 ```bash
-git clone https://github.com/whosydd/opencode-model-usage.git
-cd opencode-model-usage
+git clone https://github.com/whosydd/opencode-model-quota.git
+cd opencode-model-quota
 npm install
 npm run build
 ```

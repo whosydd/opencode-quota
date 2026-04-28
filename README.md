@@ -52,7 +52,7 @@ Add the plugin to your `tui.json` — OpenCode will automatically install and lo
       "opencode-model-quota",
       {
         "opencodeGo": {
-          "workspaceId": "wrk_your_workspace_id",
+          "workspaceId": "{env:OPENCODE_GO_WORKSPACE_ID}",
           "authCookie": "{env:OPENCODE_GO_AUTH_COOKIE}"
         }
       }
@@ -67,8 +67,8 @@ Configure only the providers you need. Omit `opencodeGo` to skip that provider. 
 <summary>Manual build (for developers)</summary>
 
 ```bash
-git clone https://github.com/whosydd/opencode-model-usage.git
-cd opencode-model-usage
+git clone https://github.com/whosydd/opencode-model-quota.git
+cd opencode-model-quota
 npm install
 npm run build
 ```
