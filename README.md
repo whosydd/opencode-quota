@@ -10,10 +10,9 @@ OpenCode TUI plugin for checking model or subscription quota.
 
 ## Supported Providers
 
-> **Currently only OpenCode Go and GitHub Copilot are supported.** Additional providers may be added in the future.
-
 - **OpenCode Go** — rolling, weekly, and monthly subscription quota (via HTML scraping)
 - **GitHub Copilot** — monthly premium request quota, allowance, and overage
+- **OpenAI** — hourly, weekly, and code-review rate limit windows
 
 Providers only run when their credentials are configured. Unconfigured providers are skipped silently.
 
@@ -56,18 +55,14 @@ Add the plugin to your `tui.json` — OpenCode will automatically install and lo
           "workspaceId": "wrk_your_workspace_id",
           "authCookie": "{env:OPENCODE_GO_AUTH_COOKIE}"
         },
-        "githubCopilot": {
-          "username": "your-github-username",
-          "token": "{env:GITHUB_COPILOT_TOKEN}",
-          "plan": "pro"
-        }
+        "githubCopilot": "configured through OpenCode login"
       }
     ]
   ]
 }
 ```
 
-Configure only the providers you need. Omit `opencodeGo` or `githubCopilot` to skip that provider.
+Configure only the providers you need. Omit `opencodeGo` to skip that provider. GitHub Copilot and OpenAI are detected from your OpenCode login session.
 
 <details>
 <summary>Manual build (for developers)</summary>
@@ -84,18 +79,16 @@ Then register using the absolute path to `dist/tui.js`.
 
 ## Configuration
 
-Priority: `tui.json` plugin options → environment variables.
+Priority for OpenCode Go: `tui.json` plugin options → environment variables.
 
 ### Environment Variables
 
 ```bash
 export OPENCODE_GO_WORKSPACE_ID="wrk_your_workspace_id"
 export OPENCODE_GO_AUTH_COOKIE="Fe26.2**your_auth_cookie"
-
-export GITHUB_COPILOT_USERNAME="your-github-login"
-export GITHUB_COPILOT_TOKEN="github_pat_your_token"
-export GITHUB_COPILOT_PLAN="pro"  # "pro" or "pro+"
 ```
+
+GitHub Copilot and OpenAI do not use plugin options or environment variables anymore. Log in through OpenCode and the plugin will reuse that OAuth session.
 
 ### Getting OpenCode Go Credentials
 
@@ -119,13 +112,10 @@ export GITHUB_COPILOT_PLAN="pro"  # "pro" or "pro+"
 
 String values in `tui.json` or config sources support `{env:VARIABLE_NAME}` placeholders. Shell command placeholders like `{env:$(gh auth token)}` are not supported.
 
-`githubCopilot.plan` only supports `"pro"` (300 requests/month) and `"pro+"` (1500 requests/month). It defaults to `"pro"` when omitted.
-
 ## GitHub Copilot Data Sources
 
-The plugin tries two GitHub API endpoints in order:
+The plugin uses the Copilot quota snapshot endpoint (`/copilot_internal/user`) with the OAuth session stored by OpenCode. Auth, permission, rate-limit, and unsupported-account errors are surfaced directly.
 
-1. **Quota snapshot** (`/copilot_internal/user`) — matches the usage shown in VS Code. Returned when the token has access to the Copilot internal API.
-2. **Billing usage** (`/users/{username}/settings/billing/premium_request/usage`) — personal billing only. Falls back when the snapshot endpoint returns 404. Organization-managed licenses are not included.
+## OpenAI Data Sources
 
-Auth, permission, and rate-limit errors from the quota snapshot are surfaced directly, not masked by the billing fallback.
+The plugin fetches from the OpenAI usage API (`/backend-api/wham/usage`) using the OAuth session stored by OpenCode. Auth, permission, and rate-limit errors are surfaced directly.

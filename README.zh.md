@@ -10,10 +10,9 @@ OpenCode TUI 插件，用于查看模型或订阅配额。
 
 ## 支持的提供商
 
-> **当前仅支持 OpenCode Go 和 GitHub Copilot。** 未来可能会添加更多提供商。
-
 - **OpenCode Go** — 滚动、周度和月度订阅配额（通过 HTML 解析）
 - **GitHub Copilot** — 月度高级请求配额、额度和超额用量
+- **OpenAI** — 小时、周度和代码审查频率限制窗口
 
 仅当凭据已配置时，对应提供商才会运行。未配置的提供商会自动跳过。
 
@@ -56,18 +55,14 @@ OpenCode TUI 插件，用于查看模型或订阅配额。
           "workspaceId": "wrk_your_workspace_id",
           "authCookie": "{env:OPENCODE_GO_AUTH_COOKIE}"
         },
-        "githubCopilot": {
-          "username": "your-github-username",
-          "token": "{env:GITHUB_COPILOT_TOKEN}",
-          "plan": "pro"
-        }
+        "githubCopilot": "通过 OpenCode 登录配置"
       }
     ]
   ]
 }
 ```
 
-仅配置你需要的提供商。省略 `opencodeGo` 或 `githubCopilot` 即可跳过该提供商。
+仅配置你需要的提供商。省略 `opencodeGo` 即可跳过该提供商。GitHub Copilot 和 OpenAI 会自动复用 OpenCode 登录会话。
 
 <details>
 <summary>手动构建（开发人员）</summary>
@@ -84,18 +79,16 @@ npm run build
 
 ## 配置
 
-优先级：`tui.json` 插件选项 → 环境变量。
+OpenCode Go 的优先级：`tui.json` 插件选项 → 环境变量。
 
 ### 环境变量
 
 ```bash
 export OPENCODE_GO_WORKSPACE_ID="wrk_your_workspace_id"
 export OPENCODE_GO_AUTH_COOKIE="Fe26.2**your_auth_cookie"
-
-export GITHUB_COPILOT_USERNAME="your-github-login"
-export GITHUB_COPILOT_TOKEN="github_pat_your_token"
-export GITHUB_COPILOT_PLAN="pro"  # "pro" 或 "pro+"
 ```
+
+GitHub Copilot 和 OpenAI 不再使用插件选项或环境变量。直接通过 OpenCode 登录后，插件会复用对应的 OAuth 会话。
 
 ### 获取 OpenCode Go 凭据
 
@@ -119,13 +112,10 @@ export GITHUB_COPILOT_PLAN="pro"  # "pro" 或 "pro+"
 
 `tui.json` 或环境变量中的字符串值支持 `{env:VARIABLE_NAME}` 占位符。不支持 Shell 命令占位符（如 `{env:$(gh auth token)}`）。
 
-`githubCopilot.plan` 仅支持 `"pro"`（300 请求/月）和 `"pro+"`（1500 请求/月），省略时默认为 `"pro"`。
-
 ## GitHub Copilot 数据来源
 
-插件按顺序尝试两个 GitHub API 端点：
+插件使用 OpenCode 保存的 OAuth 会话调用 Copilot 配额快照端点（`/copilot_internal/user`）。身份验证、权限、频率限制和账户不支持等错误会直接展示。
 
-1. **配额快照**（`/copilot_internal/user`）— 与 VS Code 中显示的用量一致。当令牌有权访问 Copilot 内部 API 时返回。
-2. **账单用量**（`/users/{username}/settings/billing/premium_request/usage`）— 仅限个人账单。当快照端点返回 404 时回退使用。不包含组织管理的许可证。
+## OpenAI 数据来源
 
-配额快照的身份验证、权限和频率限制错误会直接展示，不会被账单回退掩盖。
+插件使用 OpenCode 保存的 OAuth 会话调用 OpenAI 使用量 API（`/backend-api/wham/usage`）。身份验证、权限和频率限制等错误会直接展示。

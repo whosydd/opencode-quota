@@ -8,6 +8,7 @@ OpenCode TUI plugin that shows model/subscription quota from multiple providers 
 
 - OpenCode Go rolling, weekly, and monthly subscription quota (HTML scraping)
 - GitHub Copilot monthly premium request quota, allowance, and overage
+- OpenAI hourly, weekly, and code-review rate limit windows
 - Single slash command: `/model-quota` - always fetches fresh data
 
 ## Build & Verify
@@ -24,8 +25,10 @@ No test suite exists yet. Verify by building and type-checking.
 
 - `src/tui.ts`: TUI plugin entrypoint. Registers slash commands, orchestrates provider calls, renders dialogs.
 - `src/config.ts`: Config loading with priority: `tui.json` plugin options → env vars.
+- `src/opencode-auth.ts`: Shared auth resolution (JWT parsing, OAuth session reading, token expiry checks via `isAuthExpired`). All providers use this module instead of duplicating auth logic.
 - `src/opencode-go.ts`: HTML fetch + parse for OpenCode Go quota.
-- `src/github-copilot.ts`: GitHub API fetcher. Tries IDE quota snapshot first, falls back to personal billing usage endpoint.
+- `src/github-copilot.ts`: GitHub API fetcher using the OpenCode-stored OAuth session against the IDE quota snapshot endpoint.
+- `src/openai.ts`: OpenAI usage API fetcher using the OpenCode-stored OAuth session.
 - `src/format.ts`: Text formatting for TUI dialog output.
 - `docs/project-plan.md`: Roadmap (phases 0-3).
 
@@ -34,6 +37,7 @@ No test suite exists yet. Verify by building and type-checking.
 - Keep provider logic isolated. `tui.ts` should not know how data is fetched.
 - Each provider owns its own fetch, parse, and error handling.
 - `format.ts` is the single place for user-facing text; providers return structured data, not strings.
+- Auth utilities (`isAuthExpired`, `readAuthFileCached`, `resolveCopilotAuth`, `resolveOpenAIAuth`) live in `opencode-auth.ts`. Providers must not duplicate auth or expiry logic.
 - Do not log secrets (cookies, tokens) anywhere.
 - Prefer environment variables over config files for credentials.
 
@@ -46,16 +50,21 @@ No test suite exists yet. Verify by building and type-checking.
 
 ### GitHub Copilot
 - **Primary**: `GET /copilot_internal/user` quota snapshot (matches VS Code IDE usage).
-- **Fallback**: `GET /users/{username}/settings/billing/premium_request/usage` (personal billing only; org-managed licenses are not included).
-- Quota snapshot 404s are silently ignored and trigger billing fallback.
-- Auth/permission/rate-limit errors from quota snapshot are **surfaced directly**, not masked by billing fallback errors.
-- `plan` is used for billing fallback to compute percentages; only `"pro"` (300 requests) and `"pro+"` (1500 requests) are supported, matching GitHub Copilot's official plan display. Defaults to `"pro"`.
+- Uses the OpenCode-stored OAuth session to call `GET /copilot_internal/user`.
+- Auth/permission/rate-limit and unsupported-account errors are surfaced directly.
+
+### OpenAI
+- Fetches from `https://chatgpt.com/backend-api/wham/usage` using the OpenCode-stored OAuth session.
+- Returns hourly, weekly, and code-review rate limit windows with `used_percent` and reset timestamps.
+- Auth/permission/rate-limit errors are surfaced directly.
 
 ## Config & Secrets
 
-- Credentials should be provided via `tui.json` plugin options or environment variables.
+- OpenCode Go credentials should be provided via `tui.json` plugin options or environment variables.
+- GitHub Copilot and OpenAI reuse the OAuth sessions stored by OpenCode.
 - String values support `{env:VARIABLE_NAME}` placeholders. Shell command placeholders like `{env:$(gh auth token)}` are explicitly rejected.
 - `refreshIntervalMinutes` is not supported (always fetches fresh data).
+- `readAuthFile` throws on malformed JSON in auth files rather than silently ignoring it.
 - Never commit tokens or cookies to the repo.
 
 ## Constraints
