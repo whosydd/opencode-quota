@@ -1,6 +1,6 @@
 {
-  "name": "opencode-quota",
-  "version": "0.3.0",
+  "name": "@whosydd/opencode-quota",
+  "version": "0.3.1",
   "description": "OpenCode TUI plugin for checking quota and subscription usage (OpenCode Go, GitHub Copilot).",
   "type": "module",
   "author": "GY <dev.youngkwok718@gmail.com>",

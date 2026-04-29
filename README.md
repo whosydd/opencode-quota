@@ -47,7 +47,7 @@ Add the plugin to your `tui.json`:
 ```json
 {
   "$schema": "https://opencode.ai/tui.json",
-  "plugin": ["opencode-quota"]
+  "plugin": ["@whosydd/opencode-quota"]
 }
 ```
 
