@@ -1,4 +1,4 @@
-# opencode-model-quota
+# opencode-quota
 
 <!-- README-I18N:START -->
 
@@ -20,7 +20,7 @@ OpenCode TUI 插件，用于查看模型或订阅配额。
 
 | 命令 | 说明 |
 |---------|------|
-| `/model-quota` | 获取并显示所有已配置提供商的当前配额 |
+| `/quota` | 获取并显示所有已配置提供商的当前配额 |
 
 该命令始终获取最新数据。
 
@@ -42,43 +42,33 @@ Updated: Apr 27, 2:30 PM
 
 ## 安装
 
-在 `tui.json` 中添加插件 — OpenCode 启动时会自动安装并加载：
+在 `tui.json` 中添加插件：
 
 ```json
 {
   "$schema": "https://opencode.ai/tui.json",
-  "plugin": [
-    [
-      "opencode-model-quota",
-      {
-        "opencodeGo": {
-          "workspaceId": "{env:OPENCODE_GO_WORKSPACE_ID}",
-          "authCookie": "{env:OPENCODE_GO_AUTH_COOKIE}"
-        },
-      }
-    ]
-  ]
+  "plugin": ["opencode-quota"]
 }
 ```
 
-仅配置你需要的提供商。省略 `opencodeGo` 即可跳过该提供商。GitHub Copilot 和 OpenAI 会自动复用 OpenCode 登录会话。
+当设置了 `OPENCODE_GO_WORKSPACE_ID` 和 `OPENCODE_GO_AUTH_COOKIE` 时，会启用 OpenCode Go。GitHub Copilot 和 OpenAI 会自动复用 OpenCode 登录会话。
 
 <details>
 <summary>手动构建（开发人员）</summary>
 
 ```bash
-git clone https://github.com/whosydd/opencode-model-quota.git
-cd opencode-model-quota
+git clone https://github.com/whosydd/opencode-quota.git
+cd opencode-quota
 npm install
 npm run build
 ```
 
-然后使用 `dist/tui.js` 的绝对路径进行注册。
+然后在 `tui.json` 中使用 `dist/tui.js` 的绝对路径进行注册。
 </details>
 
 ## 配置
 
-OpenCode Go 的优先级：`tui.json` 插件选项 → 环境变量。
+OpenCode Go 直接从环境变量读取配置。
 
 ### 环境变量
 
@@ -109,7 +99,7 @@ GitHub Copilot 和 OpenAI 不再使用插件选项或环境变量。直接通过
 
 ### 配置模型详情
 
-`tui.json` 或环境变量中的字符串值支持 `{env:VARIABLE_NAME}` 占位符。不支持 Shell 命令占位符（如 `{env:$(gh auth token)}`）。
+本插件直接从环境变量读取 OpenCode Go 凭据。
 
 ## GitHub Copilot 数据来源
 

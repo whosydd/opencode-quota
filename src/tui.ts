@@ -15,7 +15,7 @@ import { getOpenAIQuota } from "./openai.js"
 import { getOpenCodeGoQuota } from "./opencode-go.js"
 import { readAuthFileCached, resolveOpenAIAuth, resolveCopilotAuth } from "./opencode-auth.js"
 
-const COMMAND_VALUE = "model-quota.show"
+const COMMAND_VALUE = "quota.show"
 const LOADING_FRAMES = ["○", "◐", "◑", "●"]
 
 let activeQuotaRequestId = 0
@@ -26,12 +26,12 @@ const tui: TuiPlugin = async (api, options) => {
 
   api.command.register(() => [
     {
-      title: "Show model quota",
+      title: "Show quota",
       value: COMMAND_VALUE,
       category: "Quota",
       suggested: true,
       slash: {
-        name: "model-quota",
+        name: "quota",
       },
       onSelect: () => showQuotaDialog(api, configOverrides),
     },
@@ -69,7 +69,7 @@ async function showQuotaDialog(
   const renderLoadingDialog = () => {
     api.ui.dialog.replace(() =>
       api.ui.DialogAlert({
-        title: "Model Quota",
+        title: "Quota",
         message: formatQuotaLoadingMessage(LOADING_FRAMES[loadingFrame]),
         onConfirm: closeLoadingDialog,
       }),
@@ -93,7 +93,7 @@ async function showQuotaDialog(
 
     api.ui.dialog.replace(() =>
       api.ui.DialogAlert({
-        title: "Model Quota",
+        title: "Quota",
         message,
         onConfirm: () => api.ui.dialog.clear(),
       }),
@@ -105,7 +105,7 @@ async function showQuotaDialog(
 
     api.ui.dialog.replace(() =>
       api.ui.DialogAlert({
-        title: "Model Quota Error",
+        title: "Quota Error",
         message: error instanceof Error ? error.message : "Failed to fetch quota.",
         onConfirm: () => api.ui.dialog.clear(),
       }),
@@ -122,7 +122,7 @@ async function buildQuotaMessage(
   const errors: string[] = []
 
   try {
-    if (loadOptionalOpenCodeGoConfig(configOverrides)) {
+    if (loadOptionalOpenCodeGoConfig()) {
       tasks.push(getOpenCodeGoQuota(configOverrides).then(formatOpenCodeGoMessage))
     }
   } catch (error) {
@@ -162,7 +162,7 @@ async function buildQuotaMessage(
     }
 
     throw new Error(
-      "No quota providers are configured. Set OpenCode Go credentials in tui.json or environment variables, and log in to GitHub Copilot and/or OpenAI through OpenCode.",
+      "No quota providers are configured. Set OpenCode Go credentials in environment variables, and log in to GitHub Copilot and/or OpenAI through OpenCode.",
     )
   }
 

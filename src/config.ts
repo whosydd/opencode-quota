@@ -8,45 +8,24 @@ export type OpenCodeGoConfig = {
   authCookie: string
 }
 
-export type PluginConfigOverrides = Partial<{
-  workspaceId: unknown
-  authCookie: unknown
-  opencodeGo: {
-    workspaceId?: unknown
-    authCookie?: unknown
-  }
-}>
-
+export type PluginConfigOverrides = Record<string, unknown>
 export type OpenCodeGoConfigOverrides = PluginConfigOverrides
 
-function readOpenCodeGoOverrides(overrides: PluginConfigOverrides | undefined): Partial<OpenCodeGoConfig> {
-  if (!overrides || typeof overrides !== "object") return {}
-
-  const nested = typeof overrides.opencodeGo === "object" && overrides.opencodeGo ? overrides.opencodeGo : undefined
-
-  return {
-    workspaceId: asTrimmedString(overrides.workspaceId ?? nested?.workspaceId),
-    authCookie: asTrimmedString(overrides.authCookie ?? nested?.authCookie),
-  }
-}
-
-export function loadOpenCodeGoConfig(overrides?: PluginConfigOverrides): OpenCodeGoConfig {
-  const config = loadOptionalOpenCodeGoConfig(overrides)
+export function loadOpenCodeGoConfig(): OpenCodeGoConfig {
+  const config = loadOptionalOpenCodeGoConfig()
   if (config) return config
 
   throw new Error(
     [
       "OpenCode Go is not configured.",
-      "Set plugin options in tui.json,",
-      "or OPENCODE_GO_WORKSPACE_ID and OPENCODE_GO_AUTH_COOKIE.",
+      "Set OPENCODE_GO_WORKSPACE_ID and OPENCODE_GO_AUTH_COOKIE.",
     ].join(" "),
   )
 }
 
-export function loadOptionalOpenCodeGoConfig(overrides?: PluginConfigOverrides): OpenCodeGoConfig | null {
-  const optionConfig = readOpenCodeGoOverrides(overrides)
-  const workspaceId = (optionConfig.workspaceId ?? process.env.OPENCODE_GO_WORKSPACE_ID)?.trim()
-  const authCookie = (optionConfig.authCookie ?? process.env.OPENCODE_GO_AUTH_COOKIE)?.trim()
+export function loadOptionalOpenCodeGoConfig(): OpenCodeGoConfig | null {
+  const workspaceId = asTrimmedString(process.env.OPENCODE_GO_WORKSPACE_ID)
+  const authCookie = asTrimmedString(process.env.OPENCODE_GO_AUTH_COOKIE)
 
   if (!workspaceId || !authCookie) return null
 

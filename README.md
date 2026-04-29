@@ -1,4 +1,4 @@
-# opencode-model-quota
+# opencode-quota
 
 <!-- README-I18N:START -->
 
@@ -20,7 +20,7 @@ Providers only run when their credentials are configured. Unconfigured providers
 
 | Command | Description |
 |---------|-------------|
-| `/model-quota` | Fetch and show current quota from all configured providers |
+| `/quota` | Fetch and show current quota from all configured providers |
 
 The command always fetches fresh data. 
 
@@ -42,43 +42,33 @@ Updated: Apr 27, 2:30 PM
 
 ## Install
 
-Add the plugin to your `tui.json` — OpenCode will automatically install and load it on startup:
+Add the plugin to your `tui.json`:
 
 ```json
 {
   "$schema": "https://opencode.ai/tui.json",
-  "plugin": [
-    [
-      "opencode-model-quota",
-      {
-        "opencodeGo": {
-          "workspaceId": "{env:OPENCODE_GO_WORKSPACE_ID}",
-          "authCookie": "{env:OPENCODE_GO_AUTH_COOKIE}"
-        }
-      }
-    ]
-  ]
+  "plugin": ["opencode-quota"]
 }
 ```
 
-Configure only the providers you need. Omit `opencodeGo` to skip that provider. GitHub Copilot and OpenAI are detected from your OpenCode login session.
+OpenCode Go is enabled when `OPENCODE_GO_WORKSPACE_ID` and `OPENCODE_GO_AUTH_COOKIE` are set. GitHub Copilot and OpenAI are detected from your OpenCode login session.
 
 <details>
 <summary>Manual build (for developers)</summary>
 
 ```bash
-git clone https://github.com/whosydd/opencode-model-quota.git
-cd opencode-model-quota
+git clone https://github.com/whosydd/opencode-quota.git
+cd opencode-quota
 npm install
 npm run build
 ```
 
-Then register using the absolute path to `dist/tui.js`.
+Then register it in `tui.json` using the absolute path to `dist/tui.js`.
 </details>
 
 ## Configuration
 
-Priority for OpenCode Go: `tui.json` plugin options → environment variables.
+OpenCode Go reads configuration directly from environment variables.
 
 ### Environment Variables
 
@@ -109,7 +99,7 @@ GitHub Copilot and OpenAI do not use plugin options or environment variables any
 
 ### Configuration Model Details
 
-String values in `tui.json` or config sources support `{env:VARIABLE_NAME}` placeholders. Shell command placeholders like `{env:$(gh auth token)}` are not supported.
+This plugin reads OpenCode Go credentials directly from environment variables. 
 
 ## GitHub Copilot Data Sources
 

@@ -105,7 +105,7 @@ export async function getOpenAIQuota(): Promise<OpenAISnapshot | null> {
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${resolved.accessToken}`,
-    "User-Agent": "opencode-model-quota/0.2.0",
+    "User-Agent": "opencode-quota/0.3.0",
   }
 
   if (resolved.accountId) {

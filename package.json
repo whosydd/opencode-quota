@@ -1,14 +1,14 @@
 {
-  "name": "opencode-model-quota",
-  "version": "0.2.1",
-  "description": "OpenCode TUI plugin for checking model and subscription quota (OpenCode Go, GitHub Copilot).",
+  "name": "opencode-quota",
+  "version": "0.3.0",
+  "description": "OpenCode TUI plugin for checking quota and subscription usage (OpenCode Go, GitHub Copilot).",
   "type": "module",
   "author": "GY <dev.youngkwok718@gmail.com>",
   "license": "MIT",
-  "homepage": "https://github.com/whosydd/opencode-model-quota",
+  "homepage": "https://github.com/whosydd/opencode-quota",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/whosydd/opencode-model-quota.git"
+    "url": "git+https://github.com/whosydd/opencode-quota.git"
   },
   "keywords": [
     "opencode",

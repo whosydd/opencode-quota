@@ -4,6 +4,8 @@ import type { OpenCodeGoSnapshot } from "./opencode-go.js"
 
 const SEPARATOR = "  "
 const BAR_WIDTH = 24
+const DIALOG_CONTENT_WIDTH = 52
+const DIALOG_LEFT_INDENT = 2
 
 export type QuotaEntry = {
   name: string
@@ -262,10 +264,10 @@ export function formatQuotaMessage(messages: string[], fetchedAt?: number): stri
 
   if (fetchedAt != null) {
     const updatedAt = `Updated: ${formatTimestamp(fetchedAt)}`
-    return `${result}\n\n${updatedAt}`
+    return centerBlock(`${result}\n\n${updatedAt}`)
   }
 
-  return result
+  return centerBlock(result)
 }
 
 export function formatQuotaLoadingMessage(frame: string): string {
@@ -283,4 +285,15 @@ export function formatTimestamp(timestamp: number): string {
 
 export function formatCount(value: number): string {
   return Number.isInteger(value) ? `${value}` : value.toFixed(2)
+}
+
+function centerBlock(text: string): string {
+  const lines = text.split("\n")
+  const maxLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0)
+  const leftPadding = Math.max(0, Math.floor((DIALOG_CONTENT_WIDTH - maxLineLength) / 2) + DIALOG_LEFT_INDENT)
+
+  if (leftPadding === 0) return text
+
+  const indent = " ".repeat(leftPadding)
+  return lines.map((line) => (line ? `${indent}${line}` : line)).join("\n")
 }

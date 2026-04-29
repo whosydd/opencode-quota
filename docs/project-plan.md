@@ -23,9 +23,9 @@ The target experience is a unified quota command that can show:
 ### Phase 1: Minimal Working Version ✅
 
 - Scope: OpenCode Go only.
-- Surface: `/model-quota` slash command in the TUI.
+- Surface: `/quota` slash command in the TUI.
 - Output: a short formatted summary shown in a TUI dialog.
-- Configuration: `tui.json` plugin options first, then environment variables.
+- Configuration: environment variables.
 - No caching: always fetches fresh data on each invocation.
 
 ### Phase 2: Provider Expansion ✅
@@ -44,7 +44,7 @@ The target experience is a unified quota command that can show:
 ## Architecture
 
 - `src/tui.ts` owns the slash command registration and TUI feedback.
-- `src/config.ts` centralizes environment-based config loading and `tui.json` overrides.
+- `src/config.ts` centralizes environment-based config loading.
 - `src/opencode-go.ts` owns remote fetching, HTML parsing, and data extraction.
 - `src/github-copilot.ts` owns GitHub Copilot API fetching and response parsing.
 - `src/format.ts` converts provider data into user-facing text.
@@ -69,7 +69,7 @@ The target experience is a unified quota command that can show:
 ## V1 Shape
 
 - A TUI plugin package exposing `./tui`.
-- A single slash command, `/model-quota`.
+- A single slash command, `/quota`.
 - Three provider modules: OpenCode Go, GitHub Copilot, and OpenAI.
 - Providers only run when their credentials are configured; unconfigured providers are skipped silently.
 - If no providers are configured, a clear error message lists the required credentials.
@@ -84,25 +84,14 @@ The target experience is a unified quota command that can show:
 
 ## Configuration Model
 
-Priority: `tui.json` plugin options → environment variables.
+Priority: environment variables.
 
-### tui.json Plugin Options
+### tui.json Plugin Registration
 
 ```json
 {
   "$schema": "https://opencode.ai/tui.json",
-  "plugin": [
-    [
-      "file:///absolute/path/to/opencode-model-quota/dist/tui.js",
-      {
-        "opencodeGo": {
-          "workspaceId": "wrk_example",
-          "authCookie": "{env:OPENCODE_GO_AUTH_COOKIE}"
-        },
-        "githubCopilot": "configured through OpenCode login"
-      }
-    ]
-  ]
+  "plugin": ["file:///absolute/path/to/opencode-quota/dist/tui.js"]
 }
 ```
 
@@ -144,7 +133,7 @@ String values support `{env:VARIABLE_NAME}` placeholders. Shell command placehol
 ## Definition Of Done For V1
 
 - Repository has clear agent and project documentation.
-- `/model-quota` is registered by the TUI plugin.
+- `/quota` is registered by the TUI plugin.
 - The command returns OpenCode Go, GitHub Copilot, and/or OpenAI quota when configured.
 - Unconfigured providers are skipped; partial failures are reported alongside successes.
 - Misconfiguration and auth failures produce clear messages.

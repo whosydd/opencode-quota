@@ -9,7 +9,7 @@ OpenCode TUI plugin that shows model/subscription quota from multiple providers 
 - OpenCode Go rolling, weekly, and monthly subscription quota (HTML scraping)
 - GitHub Copilot monthly premium request quota, allowance, and overage
 - OpenAI rate-limit windows derived from the API response duration, plus code-review windows when available
-- Single slash command: `/model-quota` - always fetches fresh data
+- Single slash command: `/quota` - always fetches fresh data
 
 ## Build & Verify
 
@@ -24,7 +24,7 @@ No test suite exists yet. Verify by building and type-checking.
 ## Repository Layout
 
 - `src/tui.ts`: TUI plugin entrypoint. Registers slash commands, orchestrates provider calls, renders dialogs.
-- `src/config.ts`: Config loading with priority: `tui.json` plugin options → env vars.
+- `src/config.ts`: Config loading from environment variables.
 - `src/opencode-auth.ts`: Shared auth resolution (JWT parsing, OAuth session reading, token expiry checks via `isAuthExpired`). All providers use this module instead of duplicating auth logic.
 - `src/opencode-go.ts`: HTML fetch + parse for OpenCode Go quota.
 - `src/github-copilot.ts`: GitHub API fetcher using the OpenCode-stored OAuth session against the IDE quota snapshot endpoint.
@@ -60,7 +60,7 @@ No test suite exists yet. Verify by building and type-checking.
 
 ## Config & Secrets
 
-- OpenCode Go credentials should be provided via `tui.json` plugin options or environment variables.
+- OpenCode Go credentials should be provided via environment variables.
 - GitHub Copilot and OpenAI reuse the OAuth sessions stored by OpenCode.
 - String values support `{env:VARIABLE_NAME}` placeholders. Shell command placeholders like `{env:$(gh auth token)}` are explicitly rejected.
 - `refreshIntervalMinutes` is not supported (always fetches fresh data).
