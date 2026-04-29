@@ -49,7 +49,7 @@ export async function getGitHubCopilotQuota(): Promise<GitHubCopilotSnapshot> {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${resolved.accessToken}`,
-        "User-Agent": "opencode-quota/0.3.0",
+        "User-Agent": "opencode-quota/0.3.2",
         "X-GitHub-Api-Version": "2025-04-01",
       },
     })

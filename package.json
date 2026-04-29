@@ -1,6 +1,6 @@
 {
   "name": "@whosydd/opencode-quota",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "OpenCode TUI plugin for checking quota and subscription usage (OpenCode Go, GitHub Copilot).",
   "type": "module",
   "author": "GY <dev.youngkwok718@gmail.com>",
@@ -35,6 +35,9 @@
       "import": "./dist/tui.js",
       "types": "./dist/tui.d.ts"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsup src/tui.ts --format esm --dts --out-dir dist --clean --external @opentui/solid",

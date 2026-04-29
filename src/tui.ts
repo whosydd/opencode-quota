@@ -185,7 +185,7 @@ function errorMessage(error: unknown): string {
 }
 
 const plugin: TuiPluginModule & { id: string } = {
-  id: "gy.model-status",
+  id: "whosydd.opencode-quota",
   tui,
 }
 
