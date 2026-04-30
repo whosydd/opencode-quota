@@ -39,6 +39,8 @@ async function showQuotaDialog(api: Parameters<TuiPlugin>[0]): Promise<void> {
   const requestId = ++activeQuotaRequestId
   let loadingFrame = 0
   let loadingTimer: ReturnType<typeof setInterval> | undefined
+  const abortController = new AbortController()
+
   const stopLoading = () => {
     if (loadingTimer) {
       clearInterval(loadingTimer)
@@ -49,22 +51,26 @@ async function showQuotaDialog(api: Parameters<TuiPlugin>[0]): Promise<void> {
       stopActiveLoading = undefined
     }
   }
+
   const closeLoadingDialog = () => {
     if (activeQuotaRequestId === requestId) {
       activeQuotaRequestId++
     }
 
+    abortController.abort()
     stopLoading()
-
     api.ui.dialog.clear()
   }
+
   const renderLoadingDialog = () => {
-    api.ui.dialog.replace(() =>
-      api.ui.DialogAlert({
-        title: "Quota",
-        message: formatQuotaLoadingMessage(LOADING_FRAMES[loadingFrame]),
-        onConfirm: closeLoadingDialog,
-      }),
+    const message = formatQuotaLoadingMessage(LOADING_FRAMES[loadingFrame])
+    api.ui.dialog.replace(
+      () =>
+        api.ui.Dialog({
+          onClose: closeLoadingDialog,
+          children: message,
+        }),
+      closeLoadingDialog,
     )
   }
 
@@ -78,7 +84,7 @@ async function showQuotaDialog(api: Parameters<TuiPlugin>[0]): Promise<void> {
   }, 180)
 
   try {
-    const message = await buildQuotaMessage()
+    const message = await buildQuotaMessage(abortController.signal)
 
     if (activeQuotaRequestId !== requestId) return
     stopLoading()
@@ -92,6 +98,7 @@ async function showQuotaDialog(api: Parameters<TuiPlugin>[0]): Promise<void> {
     )
   } catch (error) {
     if (activeQuotaRequestId !== requestId) return
+    if (abortController.signal.aborted) return
 
     stopLoading()
 
@@ -107,13 +114,13 @@ async function showQuotaDialog(api: Parameters<TuiPlugin>[0]): Promise<void> {
   }
 }
 
-async function buildQuotaMessage(): Promise<string> {
+async function buildQuotaMessage(signal?: AbortSignal): Promise<string> {
   const tasks: Array<Promise<string>> = []
   const errors: string[] = []
 
   try {
     if (loadOptionalOpenCodeGoConfig()) {
-      tasks.push(getOpenCodeGoQuota().then(formatOpenCodeGoMessage))
+      tasks.push(getOpenCodeGoQuota(signal).then(formatOpenCodeGoMessage))
     }
   } catch (error) {
     errors.push(errorMessage(error))
@@ -124,7 +131,7 @@ async function buildQuotaMessage(): Promise<string> {
     const hasOAuthCopilot = resolveCopilotAuth(auth) !== null
 
     if (hasOAuthCopilot) {
-      tasks.push(getGitHubCopilotQuota().then(formatGitHubCopilotMessage))
+      tasks.push(getGitHubCopilotQuota(signal).then(formatGitHubCopilotMessage))
     }
   } catch (error) {
     errors.push(errorMessage(error))
@@ -136,7 +143,7 @@ async function buildQuotaMessage(): Promise<string> {
 
     if (hasOpenAI) {
       tasks.push(
-        getOpenAIQuota().then((snapshot) => {
+        getOpenAIQuota(signal).then((snapshot) => {
           if (!snapshot) throw new Error("OpenAI quota data not available.")
           return formatOpenAIMessage(snapshot)
         }),

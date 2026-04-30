@@ -31,7 +31,7 @@ export type GitHubCopilotSnapshot = {
   source: "oauth-snapshot"
 }
 
-export async function getGitHubCopilotQuota(): Promise<GitHubCopilotSnapshot> {
+export async function getGitHubCopilotQuota(signal?: AbortSignal): Promise<GitHubCopilotSnapshot> {
   const auth = await readAuthFileCached()
   const resolved = resolveCopilotAuth(auth)
 
@@ -46,6 +46,7 @@ export async function getGitHubCopilotQuota(): Promise<GitHubCopilotSnapshot> {
   let response: Response
   try {
     response = await fetch("https://api.github.com/copilot_internal/user", {
+      signal,
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${resolved.accessToken}`,

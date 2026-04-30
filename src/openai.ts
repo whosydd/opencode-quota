@@ -89,7 +89,7 @@ function resetIsoFromTimestamp(timestamp?: number): string | undefined {
   return new Date(ms).toISOString()
 }
 
-export async function getOpenAIQuota(): Promise<OpenAISnapshot | null> {
+export async function getOpenAIQuota(signal?: AbortSignal): Promise<OpenAISnapshot | null> {
   const auth = await readAuthFileCached()
   const resolved = resolveOpenAIAuth(auth)
 
@@ -104,8 +104,10 @@ export async function getOpenAIQuota(): Promise<OpenAISnapshot | null> {
   }
 
   const headers: Record<string, string> = {
+    Accept: "application/json",
     Authorization: `Bearer ${resolved.accessToken}`,
     "User-Agent": "opencode-quota/0.3.2",
+    "Content-Type": "application/json",
   }
 
   if (resolved.accountId) {
@@ -114,7 +116,7 @@ export async function getOpenAIQuota(): Promise<OpenAISnapshot | null> {
 
   let response: Response
   try {
-    response = await fetch(OPENAI_USAGE_URL, { headers })
+    response = await fetch(OPENAI_USAGE_URL, { signal, headers })
   } catch {
     throw new Error("Network error while fetching OpenAI quota.")
   }

@@ -15,15 +15,16 @@ export type OpenCodeGoSnapshot = {
   fetchedAt: number
 }
 
-export async function getOpenCodeGoQuota(): Promise<OpenCodeGoSnapshot> {
+export async function getOpenCodeGoQuota(signal?: AbortSignal): Promise<OpenCodeGoSnapshot> {
   const config = loadOpenCodeGoConfig()
-  return fetchOpenCodeGoQuota(config)
+  return fetchOpenCodeGoQuota(config, signal)
 }
 
-async function fetchOpenCodeGoQuota(config: OpenCodeGoConfig): Promise<OpenCodeGoSnapshot> {
+async function fetchOpenCodeGoQuota(config: OpenCodeGoConfig, signal?: AbortSignal): Promise<OpenCodeGoSnapshot> {
   let response: Response
   try {
     response = await fetch(`https://opencode.ai/workspace/${encodeURIComponent(config.workspaceId)}/go`, {
+      signal,
       headers: {
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         Cookie: `auth=${config.authCookie}`,
