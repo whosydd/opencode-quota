@@ -271,7 +271,7 @@ export function formatQuotaMessage(messages: string[], fetchedAt?: number): stri
 }
 
 export function formatQuotaLoadingMessage(frame: string): string {
-  return `${frame} Fetching...\n\nThis can take a few seconds.`
+  return `${frame} Fetching... (This can take a few seconds.)`
 }
 
 export function formatTimestamp(timestamp: number): string {

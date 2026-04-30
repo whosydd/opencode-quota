@@ -63,12 +63,12 @@ async function showQuotaDialog(api: Parameters<TuiPlugin>[0]): Promise<void> {
   }
 
   const renderLoadingDialog = () => {
-    const message = formatQuotaLoadingMessage(LOADING_FRAMES[loadingFrame])
     api.ui.dialog.replace(
       () =>
-        api.ui.Dialog({
-          onClose: closeLoadingDialog,
-          children: message,
+        api.ui.DialogAlert({
+          title: "Quota",
+          message: formatQuotaLoadingMessage(LOADING_FRAMES[loadingFrame]),
+          onConfirm: closeLoadingDialog,
         }),
       closeLoadingDialog,
     )
